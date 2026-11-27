@@ -69,10 +69,11 @@ def create_app(config_class=Config):
 
     return app
 
+app = create_app()
+
 if __name__ == '__main__':
-    app = create_app()
-    # Bind to 0.0.0.0 so phone/tablet on same local Wi-Fi can open it directly
+    port = int(os.environ.get('PORT', 5000))
     print("\n* FINORA Server running!")
-    print("* Local PC access:     http://127.0.0.1:5000")
-    print("* Phone/Mobile access:  http://192.168.1.2:5000 (connected to same Wi-Fi)\n")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    print(f"* Local PC access:     http://127.0.0.1:{port}")
+    print(f"* Phone/Mobile access:  http://192.168.1.2:{port} (connected to same Wi-Fi)\n")
+    app.run(host='0.0.0.0', port=port, debug=False)
