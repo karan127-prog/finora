@@ -132,51 +132,65 @@ def quick_add_detected():
     payee = str(data.get('payee', 'UPI Payment')).strip()
     payment_method = str(data.get('payment_method', 'UPI')).strip()
     source_app = str(data.get('source_app', 'Payment App')).strip()
+    tx_type = str(data.get('type', 'expense')).strip().lower()
+    if tx_type not in ('income', 'expense'):
+        tx_type = 'expense'
 
-    # Smart Auto-Categorization based on payee keyword
+    # Smart Auto-Categorization based on payee keyword and type
     payee_lower = payee.lower()
-    suggested_category_name = "Miscellaneous"
+    suggested_category_name = "Other Income" if tx_type == 'income' else "Miscellaneous"
 
-    food_keywords = ['swiggy', 'zomato', 'restaurant', 'cafe', 'mcdonald', 'kfc', 'dominos', 'burger', 'starbucks', 'tea', 'dhaba', 'pizza', 'food']
-    transport_keywords = ['uber', 'ola', 'rapido', 'metro', 'fuel', 'petrol', 'diesel', 'indian oil', 'hp petrol', 'bharat petroleum', 'fastag', 'toll', 'parking']
-    groceries_keywords = ['blinkit', 'zepto', 'instamart', 'supermarket', 'mart', 'grocer', 'bigbasket', 'dmart', 'kirana', 'milk', 'vegetable']
-    shopping_keywords = ['amazon', 'flipkart', 'myntra', 'nykaa', 'zara', 'h&m', 'meesho', 'ajio', 'croma', 'reliance']
-    utilities_keywords = ['airtel', 'jio', 'vi', 'vodafone', 'electricity', 'bescom', 'tata play', 'dish', 'broadband', 'wifi', 'bill']
-    entertainment_keywords = ['netflix', 'spotify', 'hotstar', 'prime', 'pvr', 'inox', 'movie', 'bookmyshow', 'youtube', 'gaming']
+    if tx_type == 'income':
+        if any(k in payee_lower for k in ['salary', 'payroll', 'wages']):
+            suggested_category_name = "Salary"
+        elif any(k in payee_lower for k in ['freelance', 'client', 'consulting', 'project']):
+            suggested_category_name = "Freelance"
+        elif any(k in payee_lower for k in ['dividend', 'interest', 'stock', 'mutual fund', 'zerodha', 'groww']):
+            suggested_category_name = "Investments"
+        else:
+            suggested_category_name = "Other Income"
+    else:
+        food_keywords = ['swiggy', 'zomato', 'restaurant', 'cafe', 'mcdonald', 'kfc', 'dominos', 'burger', 'starbucks', 'tea', 'dhaba', 'pizza', 'food']
+        transport_keywords = ['uber', 'ola', 'rapido', 'metro', 'fuel', 'petrol', 'diesel', 'indian oil', 'hp petrol', 'bharat petroleum', 'fastag', 'toll', 'parking']
+        groceries_keywords = ['blinkit', 'zepto', 'instamart', 'supermarket', 'mart', 'grocer', 'bigbasket', 'dmart', 'kirana', 'milk', 'vegetable']
+        shopping_keywords = ['amazon', 'flipkart', 'myntra', 'nykaa', 'zara', 'h&m', 'meesho', 'ajio', 'croma', 'reliance']
+        utilities_keywords = ['airtel', 'jio', 'vi', 'vodafone', 'electricity', 'bescom', 'tata play', 'dish', 'broadband', 'wifi', 'bill']
+        entertainment_keywords = ['netflix', 'spotify', 'hotstar', 'prime', 'pvr', 'inox', 'movie', 'bookmyshow', 'youtube', 'gaming']
 
-    if any(k in payee_lower for k in food_keywords):
-        suggested_category_name = "Food & Dining"
-    elif any(k in payee_lower for k in transport_keywords):
-        suggested_category_name = "Transportation"
-    elif any(k in payee_lower for k in groceries_keywords):
-        suggested_category_name = "Groceries"
-    elif any(k in payee_lower for k in shopping_keywords):
-        suggested_category_name = "Shopping"
-    elif any(k in payee_lower for k in utilities_keywords):
-        suggested_category_name = "Utilities"
-    elif any(k in payee_lower for k in entertainment_keywords):
-        suggested_category_name = "Entertainment"
+        if any(k in payee_lower for k in food_keywords):
+            suggested_category_name = "Food & Dining"
+        elif any(k in payee_lower for k in transport_keywords):
+            suggested_category_name = "Transportation"
+        elif any(k in payee_lower for k in groceries_keywords):
+            suggested_category_name = "Groceries"
+        elif any(k in payee_lower for k in shopping_keywords):
+            suggested_category_name = "Shopping"
+        elif any(k in payee_lower for k in utilities_keywords):
+            suggested_category_name = "Utilities"
+        elif any(k in payee_lower for k in entertainment_keywords):
+            suggested_category_name = "Entertainment"
 
     # Find matching category for target_user or default
     category = Category.query.filter(
         (Category.user_id == target_user.id) | (Category.user_id.is_(None)),
-        Category.type == 'expense',
+        Category.type == tx_type,
         Category.name.ilike(f"%{suggested_category_name}%")
     ).first()
 
     if not category:
         category = Category.query.filter(
             (Category.user_id == target_user.id) | (Category.user_id.is_(None)),
-            Category.type == 'expense'
+            Category.type == tx_type
         ).first()
 
     category_id = category.id if category else None
 
-    # Check for duplicate transaction within today (same amount & payee)
+    # Check for duplicate transaction within today (same amount, payee, and type)
     recent_dup = Transaction.query.filter(
         Transaction.user_id == target_user.id,
         Transaction.amount == amount,
         Transaction.title == payee,
+        Transaction.type == tx_type,
         Transaction.date == date.today()
     ).first()
 
@@ -188,19 +202,20 @@ def quick_add_detected():
         user_id=target_user.id,
         title=payee,
         amount=amount,
-        type='expense',
+        type=tx_type,
         category_id=category_id,
         date=date.today(),
         payment_method=payment_method,
-        description=f"Auto-captured via {source_app} payment notification"
+        description=f"Auto-captured ({tx_type}) via {source_app}"
     )
     db.session.add(tx)
 
-    # In-app notification confirming capture
+    action_label = "Received" if tx_type == 'income' else "Captured"
+    prefix = "+" if tx_type == 'income' else "-"
     capture_notif = Notification(
         user_id=target_user.id,
-        title=f"Captured: ₹{amount:,.2f} at {payee}",
-        message=f"Automatically recorded from {source_app} to {category.name if category else 'Expenses'}.",
+        title=f"{action_label}: {prefix}₹{amount:,.2f} ({payee})",
+        message=f"Automatically recorded from {source_app} to {category.name if category else tx_type.capitalize()}.",
         type='success',
         link='/transactions'
     )

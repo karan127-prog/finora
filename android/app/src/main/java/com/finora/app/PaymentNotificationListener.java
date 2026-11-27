@@ -100,8 +100,18 @@ public class PaymentNotificationListener extends NotificationListenerService {
         final String sourceApp = getAppName(sbn.getPackageName());
         final double finalAmount = amount;
 
+        // Check whether it is a received payment (Income) or made payment (Expense)
+        boolean isCredit = fullContent.contains("received") ||
+                           fullContent.contains("credited") ||
+                           fullContent.contains("deposit") ||
+                           fullContent.contains("payment received") ||
+                           fullContent.contains("sent you") ||
+                           fullContent.contains("added to your");
+
+        final String txType = isCredit ? "income" : "expense";
+
         // Deduplication guard: ignore exact same amount & payee within 60 seconds
-        String dedupKey = String.format("%.2f_%s", finalAmount, payee.toLowerCase());
+        String dedupKey = String.format("%s_%.2f_%s", txType, finalAmount, payee.toLowerCase());
         long now = System.currentTimeMillis();
         if (recentEvents.containsKey(dedupKey) && (now - recentEvents.get(dedupKey)) < 60000) {
             Log.d(TAG, "Duplicate notification ignored: " + dedupKey);
@@ -109,15 +119,15 @@ public class PaymentNotificationListener extends NotificationListenerService {
         }
         recentEvents.put(dedupKey, now);
 
-        Log.d(TAG, ">>> CAPTURED PAYMENT: ₹" + finalAmount + " to " + payee + " via " + sourceApp);
+        Log.d(TAG, ">>> CAPTURED PAYMENT: [" + txType.toUpperCase() + "] ₹" + finalAmount + " to/from " + payee + " via " + sourceApp);
 
         // Auto-record to FINORA server immediately in background
         SharedPreferences prefs = getSharedPreferences("FinoraPrefs", Context.MODE_PRIVATE);
         final String serverUrl = prefs.getString("server_url", MainActivity.DEFAULT_URL);
 
         new Thread(() -> {
-            boolean recorded = postTransactionDirectly(serverUrl, finalAmount, payee, sourceApp);
-            showExpenseNotification(finalAmount, payee, sourceApp, recorded);
+            boolean recorded = postTransactionDirectly(serverUrl, finalAmount, payee, sourceApp, txType);
+            showExpenseNotification(finalAmount, payee, sourceApp, txType, recorded);
         }).start();
     }
 
@@ -175,7 +185,7 @@ public class PaymentNotificationListener extends NotificationListenerService {
         return "UPI";
     }
 
-    private boolean postTransactionDirectly(String baseUrl, double amount, String payee, String sourceApp) {
+    private boolean postTransactionDirectly(String baseUrl, double amount, String payee, String sourceApp, String txType) {
         try {
             if (baseUrl.endsWith("/")) {
                 baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
@@ -195,10 +205,11 @@ public class PaymentNotificationListener extends NotificationListenerService {
             }
 
             String jsonPayload = String.format(
-                "{\"amount\": %.2f, \"payee\": \"%s\", \"source_app\": \"%s\", \"payment_method\": \"UPI\"}",
+                "{\"amount\": %.2f, \"payee\": \"%s\", \"source_app\": \"%s\", \"payment_method\": \"UPI\", \"type\": \"%s\"}",
                 amount,
                 (payee != null ? payee.replace("\"", "\\\"") : "UPI Payment"),
-                (sourceApp != null ? sourceApp.replace("\"", "\\\"") : "Payment App")
+                (sourceApp != null ? sourceApp.replace("\"", "\\\"") : "Payment App"),
+                txType
             );
 
             try (OutputStream os = conn.getOutputStream()) {
@@ -215,7 +226,7 @@ public class PaymentNotificationListener extends NotificationListenerService {
         }
     }
 
-    private void showExpenseNotification(double amount, String payee, String sourceApp, boolean autoRecorded) {
+    private void showExpenseNotification(double amount, String payee, String sourceApp, String txType, boolean autoRecorded) {
         createNotificationChannel();
 
         int notifId = (int) (System.currentTimeMillis() % 100000);
@@ -230,13 +241,17 @@ public class PaymentNotificationListener extends NotificationListenerService {
             PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
         );
 
-        String titleText = autoRecorded
-            ? "✅ FINORA: ₹" + String.format("%.2f", amount) + " Auto-Recorded"
-            : "🔔 FINORA: ₹" + String.format("%.2f", amount) + " Payment Detected";
+        boolean isInc = "income".equals(txType);
+        String prefix = isInc ? "+" : "-";
+        String verb = isInc ? "Received" : "Paid";
 
-        String descText = autoRecorded
-            ? "Saved for " + payee + " (" + sourceApp + "). Tap to open."
-            : "Paid to " + payee + " (" + sourceApp + "). Tap to record into FINORA.";
+        String titleText = autoRecorded
+            ? "✅ FINORA: " + prefix + "₹" + String.format("%.2f", amount) + " " + (isInc ? "Received" : "Auto-Recorded")
+            : "🔔 FINORA: " + prefix + "₹" + String.format("%.2f", amount) + " Detected";
+
+        String descText = isInc
+            ? "Received from " + payee + " (" + sourceApp + "). Tap to open."
+            : "Paid to " + payee + " (" + sourceApp + "). Tap to view.";
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)

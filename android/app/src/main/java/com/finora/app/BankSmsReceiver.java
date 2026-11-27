@@ -107,7 +107,7 @@ public class BankSmsReceiver extends BroadcastReceiver {
             }
         }
 
-        // 2. Debit keywords (SBI, HDFC, ICICI, Axis, Paytm, etc.)
+        // 2. Check for DEBIT (Expense) or CREDIT (Income)
         boolean isDebit = lowerSms.contains("debited") ||
                           lowerSms.contains("spent") ||
                           lowerSms.contains("transferred") ||
@@ -116,16 +116,25 @@ public class BankSmsReceiver extends BroadcastReceiver {
                           lowerSms.contains("purchase of") ||
                           lowerSms.contains("trf to");
 
-        if (!isDebit) {
+        boolean isCredit = lowerSms.contains("credited") ||
+                           lowerSms.contains("received") ||
+                           lowerSms.contains("deposited") ||
+                           lowerSms.contains("cr to") ||
+                           lowerSms.contains("refund") ||
+                           lowerSms.contains("cashback");
+
+        if (!isDebit && !isCredit) {
             return;
         }
+
+        final String txType = isCredit ? "income" : "expense";
 
         // 3. Extract amount
         double amount = extractAmount(rawSms);
         if (amount <= 0) return;
 
         // 4. Extract merchant / payee
-        String payee = extractPayee(rawSms);
+        String payee = extractPayee(rawSms, isCredit);
         if (payee == null || payee.trim().isEmpty()) {
             payee = extractBankName(sender);
         }
@@ -133,14 +142,14 @@ public class BankSmsReceiver extends BroadcastReceiver {
         String bankName = extractBankName(sender);
 
         // Deduplication guard: ignore exact duplicate within 30 seconds
-        String dedupKey = String.format("%.2f_%s", amount, payee.toLowerCase());
+        String dedupKey = String.format("%s_%.2f_%s", txType, amount, payee.toLowerCase());
         long now = System.currentTimeMillis();
         if (recentSmsEvents.containsKey(dedupKey) && (now - recentSmsEvents.get(dedupKey)) < 30000) {
             return;
         }
         recentSmsEvents.put(dedupKey, now);
 
-        Log.d(TAG, ">>> MATCHED BANK DEBIT: ₹" + amount + " at " + payee + " (" + bankName + ")");
+        Log.d(TAG, ">>> MATCHED BANK SMS: [" + txType.toUpperCase() + "] ₹" + amount + " | " + payee + " (" + bankName + ")");
 
         // 5. Post to FINORA server
         SharedPreferences prefs = context.getSharedPreferences("FinoraPrefs", Context.MODE_PRIVATE);
@@ -150,16 +159,16 @@ public class BankSmsReceiver extends BroadcastReceiver {
         final String finalBank = bankName;
 
         new Thread(() -> {
-            boolean recorded = postTransactionDirectly(serverUrl, finalAmount, finalPayee, finalBank);
+            boolean recorded = postTransactionDirectly(serverUrl, finalAmount, finalPayee, finalBank, txType);
             if (notifyUser) {
-                showBankSmsNotification(context, finalAmount, finalPayee, finalBank, recorded);
+                showBankSmsNotification(context, finalAmount, finalPayee, finalBank, txType, recorded);
             }
         }).start();
     }
 
     private static double extractAmount(String raw) {
-        // Pattern 1: Action keywords with amount (debited by 10.00, debited with 500, spent by 250)
-        Pattern p1 = Pattern.compile("(?:debited\\s+by|debited\\s+with|debited\\s+for|spent\\s+by|spent\\s+of|purchase\\s+of|rs\\.?|inr|₹)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+        // Pattern 1: Action keywords with amount (debited by 10.00, debited with 500, spent by 250, credited by 100)
+        Pattern p1 = Pattern.compile("(?:debited\\s+by|debited\\s+with|debited\\s+for|spent\\s+by|spent\\s+of|credited\\s+by|credited\\s+with|received|purchase\\s+of|rs\\.?|inr|₹)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
         Matcher m1 = p1.matcher(raw);
         if (m1.find()) {
             try {
@@ -188,9 +197,12 @@ public class BankSmsReceiver extends BroadcastReceiver {
         return 0;
     }
 
-    private static String extractPayee(String raw) {
-        // Pattern for SBI, HDFC, ICICI UPI format: trf to AGGARWAL TRADERS Refno ...
-        Pattern pattern = Pattern.compile("(?:trf\\s+to|to|at|for|vpa)\\s+([A-Za-z0-9\\s&'.-]{2,35}?)(?:\\s+(?:Refno|ref|on\\s+date|avl|balance|val|upi|\\.)|$)", Pattern.CASE_INSENSITIVE);
+    private static String extractPayee(String raw, boolean isCredit) {
+        String regex = isCredit
+            ? "(?:from|by|trf\\s+from|received\\s+from)\\s+([A-Za-z0-9\\s&'.-]{2,35}?)(?:\\s+(?:Refno|ref|on\\s+date|avl|balance|val|upi|\\.)|$)"
+            : "(?:trf\\s+to|to|at|for|vpa)\\s+([A-Za-z0-9\\s&'.-]{2,35}?)(?:\\s+(?:Refno|ref|on\\s+date|avl|balance|val|upi|\\.)|$)";
+
+        Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(raw);
         if (matcher.find()) {
             String p = matcher.group(1).trim();
@@ -198,7 +210,7 @@ public class BankSmsReceiver extends BroadcastReceiver {
                 return p;
             }
         }
-        return "Bank Transaction";
+        return isCredit ? "Income Transfer" : "Bank Transaction";
     }
 
     private static String extractBankName(String sender) {
@@ -217,7 +229,7 @@ public class BankSmsReceiver extends BroadcastReceiver {
         return "Bank SMS";
     }
 
-    private static boolean postTransactionDirectly(String baseUrl, double amount, String payee, String bankName) {
+    private static boolean postTransactionDirectly(String baseUrl, double amount, String payee, String bankName, String txType) {
         try {
             if (baseUrl.endsWith("/")) {
                 baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
@@ -237,10 +249,11 @@ public class BankSmsReceiver extends BroadcastReceiver {
             }
 
             String jsonPayload = String.format(
-                "{\"amount\": %.2f, \"payee\": \"%s\", \"source_app\": \"%s\", \"payment_method\": \"Bank UPI\"}",
+                "{\"amount\": %.2f, \"payee\": \"%s\", \"source_app\": \"%s\", \"payment_method\": \"Bank UPI\", \"type\": \"%s\"}",
                 amount,
-                (payee != null ? payee.replace("\"", "\\\"") : "Bank Debit"),
-                bankName
+                (payee != null ? payee.replace("\"", "\\\"") : "Bank Transfer"),
+                bankName,
+                txType
             );
 
             try (OutputStream os = conn.getOutputStream()) {
@@ -257,7 +270,7 @@ public class BankSmsReceiver extends BroadcastReceiver {
         }
     }
 
-    private static void showBankSmsNotification(Context context, double amount, String payee, String bankName, boolean autoRecorded) {
+    private static void showBankSmsNotification(Context context, double amount, String payee, String bankName, String txType, boolean autoRecorded) {
         createNotificationChannel(context);
 
         int notifId = (int) (System.currentTimeMillis() % 100000);
@@ -272,11 +285,12 @@ public class BankSmsReceiver extends BroadcastReceiver {
             PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
         );
 
-        String titleText = autoRecorded
-            ? "🏦 FINORA: ₹" + String.format("%.2f", amount) + " Bank Debit Saved"
-            : "🏦 FINORA: ₹" + String.format("%.2f", amount) + " Bank Debit Detected";
+        String isInc = "income".equals(txType);
+        String prefix = isInc ? "+" : "-";
+        String verb = isInc ? "Received" : "Debit Saved";
 
-        String descText = "From " + bankName + " (" + payee + "). Tap to view in FINORA.";
+        String titleText = "🏦 FINORA: " + prefix + "₹" + String.format("%.2f", amount) + " " + verb;
+        String descText = isInc ? "From " + payee + " (" + bankName + "). Tap to view." : "To " + payee + " (" + bankName + "). Tap to view.";
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
