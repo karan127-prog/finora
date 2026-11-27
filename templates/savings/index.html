@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+
+{% block page_title %}Savings Goals & Wealth Building{% endblock %}
+
+{% block content %}
+<!-- Top Header & Primary Action Button -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px;">
+    <div>
+        <h2 style="font-size: 1.35rem; font-weight: 700; color: var(--text-primary); margin: 0;">Savings Goals & Capital Accumulation</h2>
+        <span style="font-size: 0.82rem; color: var(--text-secondary);">Fund milestones for gadgets, emergency reserves, travel, and long-term investments</span>
+    </div>
+
+    <button type="button" class="btn btn-primary" onclick="openModal('addGoalModal')">
+        <i data-lucide="plus" style="width: 15px; height: 15px;"></i>
+        <span>Create Savings Goal</span>
+    </button>
+</div>
+
+<!-- Portfolio KPI Summary Cards (INR Currency) -->
+<div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Total Target Capital</span>
+            <div class="kpi-icon-box income"><i data-lucide="target"></i></div>
+        </div>
+        <div class="kpi-amount">
+            {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(total_target) }}
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">Combined target portfolio</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Total Capital Saved</span>
+            <div class="kpi-icon-box income"><i data-lucide="shield-check"></i></div>
+        </div>
+        <div class="kpi-amount" style="color: #4b6e55;">
+            {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(total_saved) }}
+        </div>
+        <div class="kpi-footer">
+            <span class="kpi-trend positive" style="display: inline-flex; align-items: center; gap: 4px;">
+                <i data-lucide="trending-up" style="width: 12px; height: 12px;"></i> Capital Secured
+            </span>
+            <span style="font-size: 0.76rem; color: var(--text-secondary); margin-left: 6px;">Liquid saved balance</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Remaining to Accumulate</span>
+            <div class="kpi-icon-box expense"><i data-lucide="hourglass"></i></div>
+        </div>
+        <div class="kpi-amount">
+            {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(total_remaining) }}
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">Capital gap to close</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Overall Completion</span>
+            <div class="kpi-icon-box income"><i data-lucide="award"></i></div>
+        </div>
+        <div class="kpi-amount" style="color: var(--secondary);">
+            {{ overall_progress }}%
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">{{ completed_count }} completed &bull; {{ in_progress_count }} active</span>
+        </div>
+    </div>
+</div>
+
+<!-- Status Filter Pills -->
+<div style="display: flex; gap: 8px; margin-bottom: 22px;">
+    <a href="{{ url_for('savings.index') }}"
+       class="btn btn-sm {% if status_filter == 'all' %}btn-primary{% else %}btn-outline{% endif %}"
+       style="border-radius: 20px; font-size: 0.82rem;">
+        All Goals ({{ completed_count + in_progress_count }})
+    </a>
+    <a href="{{ url_for('savings.index', status='in_progress') }}"
+       class="btn btn-sm {% if status_filter == 'in_progress' %}btn-primary{% else %}btn-outline{% endif %}"
+       style="border-radius: 20px; font-size: 0.82rem;">
+        In Progress ({{ in_progress_count }})
+    </a>
+    <a href="{{ url_for('savings.index', status='completed') }}"
+       class="btn btn-sm {% if status_filter == 'completed' %}btn-primary{% else %}btn-outline{% endif %}"
+       style="border-radius: 20px; font-size: 0.82rem;">
+        Completed ({{ completed_count }})
+    </a>
+</div>
+
+<!-- Savings Goals Cards Grid -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+    {% for gc in goal_cards %}
+        {% set g = gc.goal %}
+        <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; padding: 24px; position: relative; overflow: hidden;">
+            <div>
+                <!-- Top Card Header -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="width: 44px; height: 44px; border-radius: 14px; background: #E6EFF6; color: var(--secondary); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i data-lucide="{{ g.icon or 'target' }}" style="width: 22px; height: 22px;"></i>
+                        </div>
+                        <div>
+                            <h4 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin: 0 0 2px 0;">{{ g.name }}</h4>
+                            <span style="font-size: 0.74rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px;">
+                                <i data-lucide="calendar" style="width: 12px; height: 12px;"></i>
+                                Target: {{ g.target_date.strftime('%d %b %Y') }}
+                            </span>
+                        </div>
+                    </div>
+                    {% if gc.is_completed %}
+                        <span class="badge badge-success">
+                            <i data-lucide="check-circle-2" style="width: 12px; height: 12px;"></i>
+                            Completed
+                        </span>
+                    {% else %}
+                        <span class="badge badge-warning">
+                            <i data-lucide="clock" style="width: 12px; height: 12px;"></i>
+                            In Progress
+                        </span>
+                    {% endif %}
+                </div>
+
+                <!-- Financial Progress Numbers -->
+                <div style="margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+                        <div>
+                            <span style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary);">
+                                {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(g.current_amount) }}
+                            </span>
+                            <span style="font-size: 0.8rem; color: var(--text-secondary); margin-left: 4px;">
+                                of {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(g.target_amount) }}
+                            </span>
+                        </div>
+                        <div style="font-size: 0.95rem; font-weight: 700; color: {% if gc.is_completed %}#4b6e55{% else %}var(--secondary){% endif %};">
+                            {{ g.progress_percentage }}%
+                        </div>
+                    </div>
+
+                    <div class="progress-container" style="height: 10px; margin-bottom: 12px;">
+                        <div class="progress-bar-fill {% if gc.is_completed %}safe{% else %}warning{% endif %}"
+                             style="width: {{ g.progress_percentage }}%;"></div>
+                    </div>
+                </div>
+
+                <!-- Milestone Metrics: Remaining & Schedule Recommendation -->
+                <div style="background-color: var(--background); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; font-size: 0.8rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="color: var(--text-secondary);">Remaining to save:</span>
+                        <strong style="color: var(--text-primary);">{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(g.remaining_amount) }}</strong>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="color: var(--text-secondary);">Timeline:</span>
+                        <span style="font-weight: 600; color: {% if gc.days_left < 0 %}#8c4747{% elif gc.days_left <= 30 %}#856a31{% else %}var(--text-primary){% endif %};">
+                            {% if gc.is_completed %}
+                                Goal Achieved!
+                            {% elif gc.days_left > 0 %}
+                                {{ gc.days_left }} days remaining
+                            {% elif gc.days_left == 0 %}
+                                Target date is today!
+                            {% else %}
+                                Target overdue by {{ gc.days_left|abs }} days
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    {% if not gc.is_completed and gc.monthly_recommended > 0 %}
+                        <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 0.76rem; color: #4b6e55; display: flex; align-items: center; gap: 4px;">
+                            <i data-lucide="sparkles" style="width: 12px; height: 12px;"></i>
+                            <span>Save <strong>{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(gc.monthly_recommended) }} / month</strong> to reach goal on time.</span>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Card Actions -->
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid var(--border); margin-top: auto; flex-wrap: wrap; gap: 8px;">
+                <button type="button" class="btn btn-primary btn-sm"
+                        onclick="openContributeModal('{{ g.id }}', '{{ g.name|replace('\'', '\\\'') }}')">
+                    <i data-lucide="plus-circle" style="width: 14px; height: 14px;"></i>
+                    <span>Add Money</span>
+                </button>
+
+                <div style="display: inline-flex; gap: 6px;">
+                    <button type="button" class="btn btn-outline btn-sm" title="Edit Goal"
+                            onclick="openEditGoalModal('{{ g.id }}', '{{ g.name|replace('\'', '\\\'') }}', '{{ g.target_amount }}', '{{ g.target_date.strftime('%Y-%m-%d') }}', '{{ g.icon or 'target' }}', '{{ g.color or '#789BB8' }}')">
+                        <i data-lucide="edit-2" style="width: 13px; height: 13px;"></i>
+                    </button>
+
+                    <button type="button" class="btn btn-outline btn-sm" title="Contributions History"
+                            onclick="openHistoryModal('{{ g.id }}', '{{ g.name|replace('\'', '\\\'') }}')">
+                        <i data-lucide="history" style="width: 13px; height: 13px;"></i>
+                        <span style="font-size: 0.72rem; margin-left: 2px;">{{ gc.contribution_count }}</span>
+                    </button>
+
+                    <form action="{{ url_for('savings.delete', id=g.id) }}" method="POST" onsubmit="return confirm('Delete savings goal for {{ g.name }}?')">
+                        <button type="submit" class="btn btn-danger btn-sm" title="Delete Goal" style="padding: 4px 8px;">
+                            <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="card" style="grid-column: 1 / -1; padding: 40px 20px;">
+            <div class="empty-state">
+                <div class="empty-state-icon"><i data-lucide="target"></i></div>
+                <div class="empty-state-title">No Savings Goals Set Yet</div>
+                <div class="empty-state-desc">Define targets for your Emergency Fund, New Laptop, Vacation, or Phone to track capital progress.</div>
+                <button type="button" class="btn btn-primary" onclick="openModal('addGoalModal')" style="margin-top: 14px;">
+                    Create Your First Goal
+                </button>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+<!-- CREATE SAVINGS GOAL MODAL -->
+<div class="modal-backdrop-custom" id="addGoalModal">
+    <div class="modal-dialog-custom">
+        <div class="modal-header-custom">
+            <h3>New Savings Goal</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal('addGoalModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <form action="{{ url_for('savings.add') }}" method="POST">
+            <div class="modal-body-custom">
+                <div class="form-group">
+                    <label class="form-label">Goal Name</label>
+                    <input type="text" name="name" class="form-control" placeholder="e.g. New Laptop, Emergency Fund, Vacation" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Target Amount ({{ current_user.currency_symbol or '₹' }})</label>
+                    <input type="number" step="0.01" name="target_amount" class="form-control" placeholder="e.g. 70000" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Initial Saved Amount (Optional)</label>
+                    <input type="number" step="0.01" name="current_amount" class="form-control" value="0.00">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Target Completion Date</label>
+                    <input type="date" name="target_date" class="form-control" value="{{ today_str }}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Goal Icon</label>
+                    <select name="icon" class="form-select">
+                        <option value="target">Target</option>
+                        <option value="laptop">Laptop / Electronics</option>
+                        <option value="smartphone">Smartphone / Tech</option>
+                        <option value="shield">Emergency Fund</option>
+                        <option value="compass">Vacation / Travel</option>
+                        <option value="home">Home / Property</option>
+                        <option value="car">Vehicle / Commute</option>
+                        <option value="gift">Gift / Celebration</option>
+                        <option value="graduation-cap">Education / College</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addGoalModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Savings Goal</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT SAVINGS GOAL MODAL -->
+<div class="modal-backdrop-custom" id="editGoalModal">
+    <div class="modal-dialog-custom">
+        <div class="modal-header-custom">
+            <h3>Edit Savings Goal</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal('editGoalModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <form id="editGoalForm" method="POST">
+            <div class="modal-body-custom">
+                <div class="form-group">
+                    <label class="form-label">Goal Name</label>
+                    <input type="text" name="name" class="form-control" id="editGoalName" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Target Amount ({{ current_user.currency_symbol or '₹' }})</label>
+                    <input type="number" step="0.01" name="target_amount" class="form-control" id="editGoalTarget" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Target Completion Date</label>
+                    <input type="date" name="target_date" class="form-control" id="editGoalDate" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Goal Icon</label>
+                    <select name="icon" class="form-select" id="editGoalIcon">
+                        <option value="target">Target</option>
+                        <option value="laptop">Laptop / Electronics</option>
+                        <option value="smartphone">Smartphone / Tech</option>
+                        <option value="shield">Emergency Fund</option>
+                        <option value="compass">Vacation / Travel</option>
+                        <option value="home">Home / Property</option>
+                        <option value="car">Vehicle / Commute</option>
+                        <option value="gift">Gift / Celebration</option>
+                        <option value="graduation-cap">Education / College</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editGoalModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Goal</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ADD MONEY / CONTRIBUTE MODAL -->
+<div class="modal-backdrop-custom" id="contributeModal">
+    <div class="modal-dialog-custom" style="max-width: 440px;">
+        <div class="modal-header-custom">
+            <h3>Add Money to Goal</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal('contributeModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <form id="contributeForm" method="POST">
+            <div class="modal-body-custom">
+                <p style="font-size: 0.88rem; margin-bottom: 14px;">Deposit funds towards <strong id="contributeGoalNameSpan"></strong></p>
+                <div class="form-group">
+                    <label class="form-label">Deposit Amount ({{ current_user.currency_symbol or '₹' }})</label>
+                    <input type="number" step="0.01" name="amount" class="form-control" placeholder="0.00" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Deposit Date</label>
+                    <input type="date" name="date" class="form-control" value="{{ today_str }}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes (Optional)</label>
+                    <input type="text" name="notes" class="form-control" placeholder="e.g. Monthly salary savings, freelancing bonus">
+                </div>
+            </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('contributeModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Deposit to Goal</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- CONTRIBUTION HISTORY MODAL -->
+<div class="modal-backdrop-custom" id="historyModal">
+    <div class="modal-dialog-custom" style="max-width: 520px;">
+        <div class="modal-header-custom">
+            <div>
+                <h3 id="historyGoalTitle">Contribution History</h3>
+                <span style="font-size: 0.74rem; color: var(--text-secondary);">Audit of all logged savings deposits</span>
+            </div>
+            <button type="button" class="modal-close-btn" onclick="closeModal('historyModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="modal-body-custom" id="historyModalBody" style="max-height: 350px; overflow-y: auto;">
+            <!-- Populated via JavaScript -->
+        </div>
+        <div class="modal-footer-custom">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('historyModal')">Close</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Goal Contribution Data Map for Client-Side History Inspection
+    const goalContributionsMap = {
+        {% for gc in goal_cards %}
+            "{{ gc.goal.id }}": [
+                {% for c in gc.contributions %}
+                    {
+                        date: "{{ c.date.strftime('%d %b %Y') }}",
+                        amount: {{ c.amount }},
+                        notes: "{{ c.notes or 'Savings Deposit' }}"
+                    },
+                {% endfor %}
+            ],
+        {% endfor %}
+    };
+
+    function openContributeModal(goalId, goalName) {
+        const form = document.getElementById('contributeForm');
+        const span = document.getElementById('contributeGoalNameSpan');
+        if (form) form.action = `/savings/contribute/${goalId}`;
+        if (span) span.innerText = goalName;
+        window.openModal('contributeModal');
+    }
+
+    function openEditGoalModal(goalId, name, targetAmount, targetDate, icon, color) {
+        const form = document.getElementById('editGoalForm');
+        const nameInput = document.getElementById('editGoalName');
+        const targetInput = document.getElementById('editGoalTarget');
+        const dateInput = document.getElementById('editGoalDate');
+        const iconSelect = document.getElementById('editGoalIcon');
+
+        if (form) form.action = `/savings/edit/${goalId}`;
+        if (nameInput) nameInput.value = name;
+        if (targetInput) targetInput.value = targetAmount;
+        if (dateInput) dateInput.value = targetDate;
+        if (iconSelect) iconSelect.value = icon;
+
+        window.openModal('editGoalModal');
+    }
+
+    function openHistoryModal(goalId, goalName) {
+        const titleSpan = document.getElementById('historyGoalTitle');
+        const body = document.getElementById('historyModalBody');
+        if (titleSpan) titleSpan.innerText = `${goalName} - History`;
+
+        const list = goalContributionsMap[goalId] || [];
+        if (body) {
+            if (list.length === 0) {
+                body.innerHTML = `
+                    <div style="text-align: center; padding: 24px; color: var(--text-secondary); font-size: 0.86rem;">
+                        No contributions logged for this goal yet.
+                    </div>
+                `;
+            } else {
+                body.innerHTML = `
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        ${list.map(c => `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--background); border-radius: 10px; font-size: 0.84rem;">
+                                <div>
+                                    <div style="font-weight: 600; color: var(--text-primary);">${c.notes}</div>
+                                    <div style="font-size: 0.74rem; color: var(--text-secondary);">${c.date}</div>
+                                </div>
+                                <div style="font-weight: 700; color: ${c.amount >= 0 ? '#4b6e55' : '#8c4747'};">
+                                    ${c.amount >= 0 ? '+' : ''}{{ current_user.currency_symbol or '₹' }}${Number(c.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+        }
+
+        window.openModal('historyModal');
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}FINORA | Your Money. Your Control.{% endblock %}</title>
+    
+    <!-- Google Fonts: Manrope & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Custom Finora Design System CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+
+    <!-- PWA & Mobile App Support -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#A9C5DC">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FINORA">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    <link rel="icon" type="image/png" href="/static/icons/icon-192.png">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <div class="app-container">
+        <!-- LEFT SIDEBAR -->
+        <aside class="app-sidebar" id="appSidebar">
+            <!-- Sidebar Header & Branding -->
+            <div class="sidebar-header">
+                <a href="{{ url_for('dashboard.index') }}" class="brand-link">
+                    <div class="brand-logo-icon">
+                        <i data-lucide="sparkles"></i>
+                    </div>
+                    <div class="brand-text-container">
+                        <span class="brand-name">FINORA</span>
+                        <span class="brand-tagline">Your Money. Your Control.</span>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Sidebar Navigation Links -->
+            <div class="sidebar-nav-container">
+                <div class="nav-section-title">Menu</div>
+                <ul class="sidebar-nav">
+                    <li class="nav-item {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+                        <a href="{{ url_for('dashboard.index') }}" class="nav-link" data-title="Dashboard">
+                            <i data-lucide="layout-dashboard"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-item {% if request.endpoint == 'transactions.index' %}active{% endif %}">
+                        <a href="{{ url_for('transactions.index') }}" class="nav-link" data-title="Transactions">
+                            <i data-lucide="arrow-left-right"></i>
+                            <span>Transactions</span>
+                        </a>
+                    </li>
+                    <li class="nav-item {% if request.endpoint == 'income.index' %}active{% endif %}">
+                        <a href="{{ url_for('income.index') }}" class="nav-link" data-title="Income">
+                            <i data-lucide="trending-up"></i>
+                            <span>Income</span>
+                        </a>
+                    </li>
+                    <li class="nav-item {% if request.endpoint == 'expenses.index' %}active{% endif %}">
+                        <a href="{{ url_for('expenses.index') }}" class="nav-link" data-title="Expenses">
+                            <i data-lucide="trending-down"></i>
+                            <span>Expenses</span>
+                        </a>
+                    </li>
+                    <li class="nav-item {% if request.endpoint == 'budgets.index' %}active{% endif %}">
+                        <a href="{{ url_for('budgets.index') }}" class="nav-link" data-title="Budgets">
+                            <i data-lucide="pie-chart"></i>
+                            <span>Budgets</span>
+                        </a>
+                    </li>
+                    <li class="nav-item {% if request.endpoint == 'savings.index' %}active{% endif %}">
+                        <a href="{{ url_for('savings.index') }}" class="nav-link" data-title="Savings Goals">
+                            <i data-lucide="target"></i>
+                            <span>Savings Goals</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="nav-section-title">Analytics & Tools</div>
+                <ul class="sidebar-nav">
+                    <li class="nav-item {% if request.endpoint == 'analytics.index' %}active{% endif %}">
+                        <a href="{{ url_for('analytics.index') }}" class="nav-link" data-title="Analytics">
+                            <i data-lucide="bar-chart-3"></i>
+                            <span>Analytics</span>
+                        </a>
+                    </li>
+                    <li class="nav-item {% if request.endpoint == 'recurring.index' %}active{% endif %}">
+                        <a href="{{ url_for('recurring.index') }}" class="nav-link" data-title="Recurring Payments">
+                            <i data-lucide="repeat"></i>
+                            <span>Recurring Payments</span>
+                        </a>
+                    </li>
+                    <li class="nav-item {% if request.endpoint == 'calendar.index' %}active{% endif %}">
+                        <a href="{{ url_for('calendar.index') }}" class="nav-link" data-title="Financial Calendar">
+                            <i data-lucide="calendar"></i>
+                            <span>Financial Calendar</span>
+                        </a>
+                    </li>
+                    <li class="nav-item {% if request.endpoint == 'reports.index' %}active{% endif %}">
+                        <a href="{{ url_for('reports.index') }}" class="nav-link" data-title="Reports">
+                            <i data-lucide="file-text"></i>
+                            <span>Reports</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="nav-section-title">Preferences</div>
+                <ul class="sidebar-nav">
+                    <li class="nav-item {% if request.endpoint == 'settings.index' and request.args.get('tab') != 'profile' %}active{% endif %}">
+                        <a href="{{ url_for('settings.index') }}" class="nav-link" data-title="Settings">
+                            <i data-lucide="settings"></i>
+                            <span>Settings</span>
+                        </a>
+                    </li>
+                    <li class="nav-item {% if request.endpoint == 'settings.index' and request.args.get('tab') == 'profile' %}active{% endif %}">
+                        <a href="{{ url_for('settings.index', tab='profile') }}" class="nav-link" data-title="Profile">
+                            <i data-lucide="user"></i>
+                            <span>Profile</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Sidebar Footer User Profile -->
+            <div class="sidebar-footer">
+                <a href="{{ url_for('settings.index', tab='profile') }}" class="user-mini-card">
+                    <div class="user-avatar">
+                        {{ current_user.name[0] if current_user.name else 'U' }}
+                    </div>
+                    <div class="user-mini-info">
+                        <span class="user-mini-name">{{ current_user.name }}</span>
+                        <span class="user-mini-email">{{ current_user.email }}</span>
+                    </div>
+                </a>
+                <a href="{{ url_for('auth.logout') }}" class="sidebar-toggle-btn" title="Sign Out">
+                    <i data-lucide="log-out" style="width: 18px; height: 18px;"></i>
+                </a>
+            </div>
+        </aside>
+
+        <!-- MAIN WRAPPER -->
+        <div class="main-wrapper" id="mainWrapper">
+            <!-- TOP NAVIGATION -->
+            <header class="app-topbar">
+                <div class="topbar-left">
+                    <button class="sidebar-toggle-btn" id="sidebarToggleBtn" aria-label="Toggle Navigation">
+                        <i data-lucide="menu"></i>
+                    </button>
+                    <h2 class="page-header-title">{% block page_title %}Dashboard{% endblock %}</h2>
+                </div>
+
+                <div class="topbar-right">
+                    <!-- Global Search -->
+                    <div class="topbar-search">
+                        <i data-lucide="search"></i>
+                        <input type="text" id="topbarSearchInput" placeholder="Search transactions..." value="{{ request.args.get('search', '') }}">
+                    </div>
+
+                    <!-- Current Date -->
+                    <div class="topbar-date">
+                        <i data-lucide="calendar-days" style="width: 15px; height: 15px; color: var(--secondary);"></i>
+                        <span id="currentDateDisplay">{% block current_date %}Today{% endblock %}</span>
+                    </div>
+
+                    <!-- Notification Bell -->
+                    <div class="notif-wrapper">
+                        <button class="icon-btn" id="notifBtn" aria-label="Notifications">
+                            <i data-lucide="bell" style="width: 18px; height: 18px;"></i>
+                            <span class="notif-badge" id="notifBadge" style="display: none;">0</span>
+                        </button>
+                        <div class="notif-dropdown" id="notifDropdown">
+                            <div class="notif-header">
+                                <h4>Notifications & Insights</h4>
+                                <button onclick="markAllNotificationsRead()" class="btn btn-outline btn-sm" style="padding: 2px 8px; font-size: 0.7rem;">Mark Read</button>
+                            </div>
+                            <div class="notif-list" id="notifList">
+                                <div style="text-align: center; padding: 15px; font-size: 0.8rem; color: #8799A8;">Loading alerts...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Add Transaction Button -->
+                    <button class="btn btn-primary topbar-add-btn" onclick="openModal('quickAddModal')">
+                        <i data-lucide="plus" style="width: 17px; height: 17px;"></i>
+                        <span>Add Record</span>
+                    </button>
+
+                    <!-- User Profile Dropdown -->
+                    <div class="profile-dropdown-wrapper">
+                        <button class="profile-btn" id="profileBtn" aria-label="User Profile Menu">
+                            <div class="user-avatar" style="width: 38px; height: 38px; font-size: 0.9rem;">
+                                {{ current_user.name[0] if current_user.name else 'U' }}
+                            </div>
+                            <i data-lucide="chevron-down" style="width: 16px; height: 16px; color: var(--text-secondary);"></i>
+                        </button>
+                        <div class="profile-menu" id="profileMenu">
+                            <div style="padding: 10px 14px;">
+                                <div style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">{{ current_user.name }}</div>
+                                <div style="font-size: 0.74rem; color: var(--text-secondary);">{{ current_user.email }}</div>
+                            </div>
+                            <div class="profile-menu-divider"></div>
+                            <a href="{{ url_for('settings.index') }}" class="profile-menu-item">
+                                <i data-lucide="user" style="width: 16px; height: 16px;"></i>
+                                <span>Profile & Preferences</span>
+                            </a>
+                            <a href="{{ url_for('reports.index') }}" class="profile-menu-item">
+                                <i data-lucide="file-text" style="width: 16px; height: 16px;"></i>
+                                <span>Financial Statements</span>
+                            </a>
+                            <div class="profile-menu-divider"></div>
+                            <a href="{{ url_for('auth.logout') }}" class="profile-menu-item" style="color: #924747;">
+                                <i data-lucide="log-out" style="width: 16px; height: 16px;"></i>
+                                <span>Sign Out</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- PAGE CONTENT -->
+            <main class="page-content">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="flash-container">
+                            {% for category, message in messages %}
+                                <div class="flash-alert {{ category }}">
+                                    <span>{{ message }}</span>
+                                    <button type="button" onclick="this.parentElement.remove()" style="background: none; border: none; cursor: pointer; color: inherit;">
+                                        <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <!-- GLOBAL QUICK ADD TRANSACTION MODAL -->
+    <div class="modal-backdrop-custom" id="quickAddModal">
+        <div class="modal-dialog-custom">
+            <div class="modal-header-custom">
+                <h3>Record New Transaction</h3>
+                <button type="button" class="modal-close-btn" onclick="closeModal('quickAddModal')">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form action="{{ url_for('transactions.add') }}" method="POST">
+                <div class="modal-body-custom">
+                    <div class="form-group">
+                        <label class="form-label">Transaction Type</label>
+                        <select name="type" class="form-select" id="quickAddType" onchange="toggleCategorySelect(this.value)">
+                            <option value="expense">Expense (-)</option>
+                            <option value="income">Income (+)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Title / Payee</label>
+                        <input type="text" name="title" class="form-control" placeholder="e.g. Grocery Store, Client Freelance" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Amount ({{ current_user.currency_symbol or '₹' }})</label>
+                        <input type="number" step="0.01" name="amount" class="form-control" placeholder="0.00" required>
+                    </div>
+
+                    <div class="form-group" id="categoryGroup">
+                        <label class="form-label">Category</label>
+                        <select name="category_id" class="form-select" id="quickAddCategorySelect">
+                            {% if expense_categories is defined %}
+                                {% for c in expense_categories %}
+                                    <option value="{{ c.id }}">{{ c.name }}</option>
+                                {% endfor %}
+                            {% endif %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Date</label>
+                        <input type="date" name="date" class="form-control" value="{{ today_str if today_str is defined else '' }}" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Payment Method</label>
+                        <select name="payment_method" class="form-select">
+                            <option value="UPI">UPI</option>
+                            <option value="Credit Card">Credit Card</option>
+                            <option value="Debit Card">Debit Card</option>
+                            <option value="Net Banking">Net Banking</option>
+                            <option value="Cash">Cash</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Description / Memo (Optional)</label>
+                        <input type="text" name="description" class="form-control" placeholder="Short description">
+                    </div>
+                </div>
+                <div class="modal-footer-custom">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('quickAddModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Transaction</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MOBILE BOTTOM NAVIGATION (Banking App Experience for Phones) -->
+    <nav class="mobile-bottom-nav">
+        <a href="{{ url_for('dashboard.index') }}" class="mobile-bottom-item {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+            <i data-lucide="layout-dashboard"></i>
+            <span>Home</span>
+        </a>
+        <a href="{{ url_for('transactions.index') }}" class="mobile-bottom-item {% if request.endpoint == 'transactions.index' %}active{% endif %}">
+            <i data-lucide="arrow-left-right"></i>
+            <span>Ledger</span>
+        </a>
+        <button type="button" class="mobile-bottom-item add-btn" onclick="openModal('quickAddModal')" aria-label="Add Record">
+            <i data-lucide="plus" style="width: 22px; height: 22px;"></i>
+        </button>
+        <a href="{{ url_for('budgets.index') }}" class="mobile-bottom-item {% if request.endpoint == 'budgets.index' %}active{% endif %}">
+            <i data-lucide="pie-chart"></i>
+            <span>Budgets</span>
+        </a>
+        <button type="button" class="mobile-bottom-item" id="mobileMenuBtn" aria-label="Open Full Menu" style="background: none; border: none; cursor: pointer;">
+            <i data-lucide="menu"></i>
+            <span>Menu</span>
+        </button>
+    </nav>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/transactions.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+
+    <script>
+        // Update current date dynamically if not set
+        const dateSpan = document.getElementById('currentDateDisplay');
+        if (dateSpan && dateSpan.innerText === 'Today') {
+            const now = new Date();
+            const options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
+            dateSpan.innerText = now.toLocaleDateString('en-GB', options);
+        }
+
+        // Category registries for dynamic switching in Quick Add
+        const incomeCategoriesData = [
+            {% if income_categories is defined %}
+                {% for c in income_categories %}
+                    { id: {{ c.id }}, name: "{{ c.name }}" },
+                {% endfor %}
+            {% endif %}
+        ];
+
+        const expenseCategoriesData = [
+            {% if expense_categories is defined %}
+                {% for c in expense_categories %}
+                    { id: {{ c.id }}, name: "{{ c.name }}" },
+                {% endfor %}
+            {% endif %}
+        ];
+
+        function toggleCategorySelect(type) {
+            const select = document.getElementById('quickAddCategorySelect');
+            if (!select) return;
+            const cats = (type === 'income') ? incomeCategoriesData : expenseCategoriesData;
+            if (cats.length > 0) {
+                select.innerHTML = cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            }
+        }
+
+        window.openQuickAddModal = function(type = 'expense') {
+            const typeSelect = document.getElementById('quickAddType');
+            if (typeSelect) {
+                typeSelect.value = type;
+                toggleCategorySelect(type);
+            }
+            window.openModal('quickAddModal');
+        };
+    </script>
+</body>
+</html>

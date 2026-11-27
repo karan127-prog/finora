@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+
+{% block page_title %}Income Streams & Revenue{% endblock %}
+
+{% block content %}
+<!-- Top Header & Primary Action Buttons -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px;">
+    <div>
+        <h2 style="font-size: 1.35rem; font-weight: 700; color: var(--text-primary); margin: 0;">Income Streams & Revenue</h2>
+        <span style="font-size: 0.82rem; color: var(--text-secondary);">Manage salary, freelance contracts, investments, and capital inflows</span>
+    </div>
+
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-outline" onclick="openAddCategoryModal('income')">
+            <i data-lucide="folder-plus" style="width: 15px; height: 15px;"></i>
+            <span>New Income Stream</span>
+        </button>
+        <button type="button" class="btn btn-primary" onclick="openModal('addIncomeModal')">
+            <i data-lucide="plus" style="width: 15px; height: 15px;"></i>
+            <span>Record Income</span>
+        </button>
+    </div>
+</div>
+
+<!-- Top KPI Summary Cards (INR Currency) -->
+<div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">This Month's Inflow</span>
+            <div class="kpi-icon-box income"><i data-lucide="arrow-down-left"></i></div>
+        </div>
+        <div class="kpi-amount" style="color: #4b6e55;">
+            {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(current_month_income) }}
+        </div>
+        <div class="kpi-footer">
+            <span class="kpi-trend positive" style="display: inline-flex; align-items: center; gap: 4px;">
+                <i data-lucide="check-circle" style="width: 12px; height: 12px;"></i> Inflow Active
+            </span>
+            <span style="font-size: 0.76rem; color: var(--text-secondary); margin-left: 6px;">Current calendar month</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Year-to-Date (YTD)</span>
+            <div class="kpi-icon-box income"><i data-lucide="calendar"></i></div>
+        </div>
+        <div class="kpi-amount">
+            {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(ytd_income) }}
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">Cumulative annual revenue</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Primary Revenue Stream</span>
+            <div class="kpi-icon-box income"><i data-lucide="briefcase"></i></div>
+        </div>
+        <div class="kpi-amount" style="font-size: 1.35rem; color: var(--text-primary);">
+            {{ top_source_name }}
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">
+                {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(top_source_amount) }} ({{ top_source_pct }}% of all inflow)
+            </span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Monthly Average</span>
+            <div class="kpi-icon-box income"><i data-lucide="trending-up"></i></div>
+        </div>
+        <div class="kpi-amount">
+            {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(monthly_avg_income) }}
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">Lifetime: {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(all_time_income) }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- Filters & Search Toolbar -->
+<div class="card" style="margin-bottom: 24px; padding: 18px 22px;">
+    <form action="{{ url_for('income.index') }}" method="GET" class="tx-filter-grid">
+        <!-- Search Keyword -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">Keyword Search</label>
+            <input type="text" name="search" class="form-control" placeholder="Search payer, memo..." value="{{ search_query }}">
+        </div>
+
+        <!-- Category Filter -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">Income Stream</label>
+            <select name="category_id" class="form-select">
+                <option value="">All Streams</option>
+                {% for c in income_categories %}
+                    <option value="{{ c.id }}" {% if category_filter == c.id|string %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Month Filter -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">Billing Month</label>
+            <select name="month" class="form-select">
+                <option value="all">All Time</option>
+                {% for m in available_months %}
+                    <option value="{{ m.value }}" {% if month_filter == m.value %}selected{% endif %}>{{ m.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Sort Option -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">Sort By</label>
+            <select name="sort" class="form-select">
+                <option value="date_desc" {% if sort_by == 'date_desc' %}selected{% endif %}>Date: Newest First</option>
+                <option value="date_asc" {% if sort_by == 'date_asc' %}selected{% endif %}>Date: Oldest First</option>
+                <option value="amount_desc" {% if sort_by == 'amount_desc' %}selected{% endif %}>Amount: High to Low</option>
+                <option value="amount_asc" {% if sort_by == 'amount_asc' %}selected{% endif %}>Amount: Low to High</option>
+            </select>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+            <button type="submit" class="btn btn-primary" style="padding: 10px 16px;">
+                <i data-lucide="filter" style="width: 15px; height: 15px;"></i>
+                <span>Filter</span>
+            </button>
+            <a href="{{ url_for('income.index') }}" class="btn btn-outline" style="padding: 10px 14px;">Reset</a>
+        </div>
+    </form>
+    
+    {% if search_query or category_filter or month_filter %}
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.82rem; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div>
+                Filtered results: <strong>{{ filtered_count }}</strong> items &bull; Total Filtered Income: <strong style="color: #4b6e55;">{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(filtered_total) }}</strong>
+            </div>
+            <a href="{{ url_for('income.index') }}" style="color: var(--secondary); text-decoration: none; font-weight: 600;">Clear all filters &times;</a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Income Stream Source Analysis & Ledger Grid -->
+<div class="responsive-split-grid">
+    <!-- Left Column: Source Breakdown & 6-Month Trend Chart -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        <!-- Revenue Source Breakdown List -->
+        <div class="card">
+            <div class="card-header-clean">
+                <div>
+                    <h3 class="card-title-clean">
+                        <i data-lucide="pie-chart" style="color: var(--secondary);"></i>
+                        Source Analysis
+                    </h3>
+                    <span class="card-subtitle-clean">Category distribution & lifetime share</span>
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                {% for s in source_breakdown %}
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 6px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: {{ s.color }};"></span>
+                                <span style="font-weight: 600;">{{ s.name }}</span>
+                                <span style="font-size: 0.72rem; color: var(--text-secondary); background: var(--sidebar); padding: 2px 6px; border-radius: 8px;">{{ s.count }} txs</span>
+                            </div>
+                            <span style="font-weight: 600; color: var(--text-primary);">
+                                {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(s.amount) }}
+                                <span style="font-weight: 400; color: var(--text-secondary); font-size: 0.78rem;">({{ s.percentage }}%)</span>
+                            </span>
+                        </div>
+                        <div class="progress-container" style="height: 7px;">
+                            <div class="progress-bar-fill safe" style="width: {{ s.percentage }}%;"></div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div style="text-align: center; padding: 24px; color: var(--text-secondary);">
+                        No income streams recorded yet. Click "Record Income" to begin.
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 6-Month Income Trends Bar Chart -->
+        <div class="card">
+            <div class="card-header-clean">
+                <div>
+                    <h3 class="card-title-clean">
+                        <i data-lucide="bar-chart-2" style="color: #4b6e55;"></i>
+                        Income Inflow Trend
+                    </h3>
+                    <span class="card-subtitle-clean">Monthly cash inflows over the last 6 months</span>
+                </div>
+            </div>
+            <div style="height: 190px; position: relative;">
+                <canvas id="incomeTrendsBarChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Income Ledger Table -->
+    <div class="card">
+        <div class="card-header-clean">
+            <div>
+                <h3 class="card-title-clean">
+                    <i data-lucide="list" style="color: var(--secondary);"></i>
+                    Income Ledger
+                </h3>
+                <span class="card-subtitle-clean">Detailed audit of all incoming revenue</span>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                {{ income_transactions|length }} shown
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Source / Title</th>
+                        <th>Category</th>
+                        <th>Method</th>
+                        <th style="text-align: right;">Amount</th>
+                        <th style="text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in income_transactions %}
+                        <tr>
+                            <td style="white-space: nowrap; font-size: 0.82rem; color: var(--text-secondary);">
+                                {{ t.date.strftime('%d %b %Y') }}
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">{{ t.title }}</div>
+                                {% if t.description %}
+                                    <div style="font-size: 0.74rem; color: var(--text-secondary);">{{ t.description }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge badge-income">
+                                    <i data-lucide="trending-up" style="width: 11px; height: 11px; margin-right: 3px;"></i>
+                                    {{ t.category_name }}
+                                </span>
+                            </td>
+                            <td style="font-size: 0.82rem; color: var(--text-primary);">{{ t.payment_method }}</td>
+                            <td style="text-align: right;">
+                                <span class="tx-amount income">+{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(t.amount) }}</span>
+                            </td>
+                            <td style="text-align: center;">
+                                <div style="display: inline-flex; gap: 6px;">
+                                    <button type="button" class="btn btn-outline btn-sm" title="Edit Record"
+                                            onclick="openEditTransactionModal('{{ t.id }}', '{{ t.title|replace('\'', '\\\'') }}', '{{ t.amount }}', 'income', '{{ t.category_id or '' }}', '{{ t.date.strftime('%Y-%m-%d') }}', '{{ t.payment_method }}', '{{ (t.description or '')|replace('\'', '\\\'') }}', '{{ (t.notes or '')|replace('\'', '\\\'') }}')">
+                                        <i data-lucide="edit-2" style="width: 13px; height: 13px;"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-danger btn-sm" title="Delete Record"
+                                            onclick="openDeleteConfirmModal('{{ t.id }}', '{{ t.title|replace('\'', '\\\'') }}')">
+                                        <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                                No income entries recorded for this view. Click "Record Income" to add your salary or earnings.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        {% if pagination.pages > 1 %}
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border);">
+                <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                    Page {{ pagination.page }} of {{ pagination.pages }} ({{ pagination.total }} total records)
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    {% if pagination.has_prev %}
+                        <a href="{{ url_for('income.index', page=pagination.prev_num, search=search_query, category_id=category_filter, month=month_filter, sort=sort_by) }}" class="btn btn-outline btn-sm">Previous</a>
+                    {% endif %}
+                    {% if pagination.has_next %}
+                        <a href="{{ url_for('income.index', page=pagination.next_num, search=search_query, category_id=category_filter, month=month_filter, sort=sort_by) }}" class="btn btn-outline btn-sm">Next</a>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ADD INCOME MODAL -->
+<div class="modal-backdrop-custom" id="addIncomeModal">
+    <div class="modal-dialog-custom">
+        <div class="modal-header-custom">
+            <h3>Record New Income</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal('addIncomeModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <form action="{{ url_for('transactions.add') }}" method="POST">
+            <input type="hidden" name="type" value="income">
+            <div class="modal-body-custom">
+                <div class="form-group">
+                    <label class="form-label">Income Source / Title</label>
+                    <input type="text" name="title" class="form-control" placeholder="e.g. Monthly Salary, Freelance Milestone #3, Dividends" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Amount ({{ current_user.currency_symbol or '₹' }})</label>
+                    <input type="number" step="0.01" name="amount" class="form-control" placeholder="0.00" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select name="category_id" class="form-select">
+                        {% for c in income_categories %}
+                            <option value="{{ c.id }}">{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date Received</label>
+                    <input type="date" name="date" class="form-control" value="{{ today_str }}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Deposit Method</label>
+                    <select name="payment_method" class="form-select">
+                        <option value="Net Banking">Net Banking</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Direct Transfer">Direct Transfer</option>
+                        <option value="Credit Card">Credit Card</option>
+                        <option value="Cash">Cash</option>
+                        <option value="Cheque">Cheque</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description / Memo</label>
+                    <input type="text" name="description" class="form-control" placeholder="e.g. Payout for corporate UI contract">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Private Notes</label>
+                    <textarea name="notes" class="form-control" rows="2" placeholder="Optional notes for tax filing or internal review"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addIncomeModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Income</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Shared Edit, Delete and Custom Category Modals -->
+{% include "transactions/modals.html" ignore missing %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize Income trends data for Chart.js
+    window.finoraIncomeTrends = {{ monthly_trends|tojson }};
+</script>
+{% endblock %}

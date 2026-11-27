@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+
+{% block page_title %}Financial Overview{% endblock %}
+{% block current_date %}{{ current_date_display }}{% endblock %}
+
+{% block content %}
+<!-- WELCOME BANNER & QUICK ACTIONS -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+    <div>
+        <h2 style="font-size: 1.45rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em;">
+            Welcome back, {{ current_user.name }}
+        </h2>
+        <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;">
+            Here is your financial health summary and real-time liquidity position.
+        </p>
+    </div>
+
+    <!-- Quick Action Shortcut Pills -->
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-outline btn-sm" onclick="openQuickAddModal('income')" style="border-color: rgba(142, 173, 152, 0.4); color: #4b6e55; background: #FFFFFF;">
+            <i data-lucide="plus-circle" style="width: 14px; height: 14px; color: #4b6e55;"></i>
+            <span>Add Income</span>
+        </button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="openQuickAddModal('expense')" style="border-color: rgba(213, 154, 154, 0.4); color: #8c4747; background: #FFFFFF;">
+            <i data-lucide="minus-circle" style="width: 14px; height: 14px; color: #8c4747;"></i>
+            <span>Add Expense</span>
+        </button>
+        <a href="{{ url_for('budgets.index') }}" class="btn btn-outline btn-sm" style="border-color: var(--border); color: var(--text-primary); background: #FFFFFF;">
+            <i data-lucide="sliders" style="width: 14px; height: 14px; color: var(--secondary);"></i>
+            <span>Plan Budget</span>
+        </a>
+        <a href="{{ url_for('reports.index') }}" class="btn btn-outline btn-sm" style="border-color: var(--border); color: var(--text-primary); background: #FFFFFF;">
+            <i data-lucide="file-text" style="width: 14px; height: 14px; color: var(--secondary);"></i>
+            <span>Statement</span>
+        </a>
+    </div>
+</div>
+
+<!-- 1. FOUR MAIN FINANCIAL KPI CARDS -->
+<div class="kpi-grid">
+    <!-- Card 1: Total Balance -->
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Total Balance</span>
+            <div class="kpi-icon-box balance">
+                <i data-lucide="wallet"></i>
+            </div>
+        </div>
+        <div class="kpi-amount">{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(metrics.total_balance) }}</div>
+        <div class="kpi-footer">
+            <span class="kpi-pct {% if metrics.balance_pct_change >= 0 %}positive{% else %}negative{% endif %}">
+                <i data-lucide="{% if metrics.balance_pct_change >= 0 %}trending-up{% else %}trending-down{% endif %}" style="width: 13px; height: 13px;"></i>
+                {{ metrics.balance_pct_change|abs }}%
+            </span>
+            <span style="color: var(--text-secondary);">vs previous month</span>
+        </div>
+    </div>
+
+    <!-- Card 2: Total Income -->
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Total Income</span>
+            <div class="kpi-icon-box income">
+                <i data-lucide="arrow-down-left"></i>
+            </div>
+        </div>
+        <div class="kpi-amount">{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(metrics.total_income) }}</div>
+        <div class="kpi-footer">
+            <span class="kpi-pct {% if metrics.income_pct_change >= 0 %}positive{% else %}negative{% endif %}">
+                <i data-lucide="{% if metrics.income_pct_change >= 0 %}trending-up{% else %}trending-down{% endif %}" style="width: 13px; height: 13px;"></i>
+                {{ metrics.income_pct_change|abs }}%
+            </span>
+            <span style="color: var(--text-secondary);">monthly inflow</span>
+        </div>
+    </div>
+
+    <!-- Card 3: Total Expenses -->
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Total Expenses</span>
+            <div class="kpi-icon-box expense">
+                <i data-lucide="arrow-up-right"></i>
+            </div>
+        </div>
+        <div class="kpi-amount">{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(metrics.total_expenses) }}</div>
+        <div class="kpi-footer">
+            <span class="kpi-pct {% if metrics.expense_pct_change <= 0 %}positive{% else %}negative{% endif %}">
+                <i data-lucide="{% if metrics.expense_pct_change <= 0 %}trending-down{% else %}trending-up{% endif %}" style="width: 13px; height: 13px;"></i>
+                {{ metrics.expense_pct_change|abs }}%
+            </span>
+            <span style="color: var(--text-secondary);">monthly outflow</span>
+        </div>
+    </div>
+
+    <!-- Card 4: Total Savings -->
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Total Savings</span>
+            <div class="kpi-icon-box savings">
+                <i data-lucide="piggy-bank"></i>
+            </div>
+        </div>
+        <div class="kpi-amount">{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(metrics.total_savings) }}</div>
+        <div class="kpi-footer">
+            <span class="kpi-pct positive">
+                {{ metrics.savings_rate }}% Rate
+            </span>
+            <span style="color: var(--text-secondary);">of monthly income</span>
+        </div>
+    </div>
+</div>
+
+<!-- 2. CHARTS SECTION (Financial Overview & Expense Breakdown) -->
+<div class="dashboard-charts-grid">
+    <!-- Financial Overview (Bar Chart) -->
+    <div class="card">
+        <div class="card-header-clean">
+            <div>
+                <h3 class="card-title-clean">
+                    <i data-lucide="bar-chart-2" style="color: var(--secondary);"></i>
+                    Financial Overview
+                </h3>
+                <span class="card-subtitle-clean">Monthly Cash Flow: Inflow vs Outflow</span>
+            </div>
+            <div style="display: flex; gap: 6px; background-color: var(--background); padding: 3px; border-radius: 8px;">
+                <button type="button" class="btn btn-sm btn-outline active" id="chartViewMonthly" style="border: none; padding: 4px 10px;">Monthly</button>
+                <button type="button" class="btn btn-sm btn-outline" id="chartViewYearly" style="border: none; padding: 4px 10px;">Yearly</button>
+            </div>
+        </div>
+        <div style="height: 290px; position: relative;">
+            <canvas id="overviewBarChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Expense Breakdown (Doughnut Chart) -->
+    <div class="card">
+        <div class="card-header-clean">
+            <div>
+                <h3 class="card-title-clean">
+                    <i data-lucide="pie-chart" style="color: var(--secondary);"></i>
+                    Expense Breakdown
+                </h3>
+                <span class="card-subtitle-clean">Category-wise Spending (This Month)</span>
+            </div>
+            <a href="{{ url_for('expenses.index') }}" class="btn btn-outline btn-sm">View Details</a>
+        </div>
+        <div style="height: 290px; position: relative;">
+            <canvas id="expenseDoughnutChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- 3. BUDGET OVERVIEW & SAVINGS GOALS (2 Columns) -->
+<div class="dashboard-split-grid">
+    <!-- Budget Utilization Overview -->
+    <div class="card">
+        <div class="card-header-clean">
+            <div>
+                <h3 class="card-title-clean">
+                    <i data-lucide="sliders" style="color: var(--secondary);"></i>
+                    Monthly Budget Allocation
+                </h3>
+                <span class="card-subtitle-clean">Active Category Spending Limits</span>
+            </div>
+            <a href="{{ url_for('budgets.index') }}" class="btn btn-outline btn-sm">Manage Budgets</a>
+        </div>
+
+        <div style="margin-bottom: 18px; padding: 14px; background-color: var(--background); border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <div style="font-size: 0.76rem; color: var(--text-secondary); text-transform: uppercase;">Total Spent / Allocated</div>
+                <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">
+                    {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(metrics.budget_spent) }}
+                    <span style="font-size: 0.82rem; font-weight: 500; color: var(--text-secondary);">/ {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(metrics.total_budget_limit) }}</span>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <div style="font-size: 0.76rem; color: var(--text-secondary); text-transform: uppercase;">Remaining</div>
+                <div style="font-size: 1.15rem; font-weight: 700; color: #4b6e55;">
+                    {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(metrics.remaining_budget) }}
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
+                <span>Total Budget Utilization</span>
+                <span style="font-weight: 600;">{{ metrics.overall_budget_pct }}%</span>
+            </div>
+            <div class="progress-container" style="height: 10px;">
+                <div class="progress-bar-fill {% if metrics.overall_budget_pct >= 90 %}critical{% elif metrics.overall_budget_pct >= 70 %}warning{% else %}safe{% endif %}"
+                     style="width: {{ [metrics.overall_budget_pct, 100]|min }}%;"></div>
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            {% for b in metrics.budget_details[:3] %}
+                <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px;">
+                        <span style="font-weight: 600;">{{ b.category_name }}</span>
+                        <span style="color: var(--text-secondary);">
+                            {{ current_user.currency_symbol or '₹' }}{{ "{:,.0f}".format(b.spent) }} / {{ current_user.currency_symbol or '₹' }}{{ "{:,.0f}".format(b.limit) }}
+                            <strong style="color: var(--text-primary);">({{ b.percentage }}%)</strong>
+                        </span>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-bar-fill {{ b.status }}" style="width: {{ [b.percentage, 100]|min }}%;"></div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Savings Goals Preview -->
+    <div class="card">
+        <div class="card-header-clean">
+            <div>
+                <h3 class="card-title-clean">
+                    <i data-lucide="target" style="color: var(--secondary);"></i>
+                    Savings Goals
+                </h3>
+                <span class="card-subtitle-clean">Track Progress Toward Milestones</span>
+            </div>
+            <a href="{{ url_for('savings.index') }}" class="btn btn-outline btn-sm">All Goals</a>
+        </div>
+
+        {% if savings_goals %}
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+                {% for g in savings_goals %}
+                    <div style="padding: 14px; background-color: var(--background); border-radius: 14px; border: 1px solid var(--border);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 32px; height: 32px; border-radius: 8px; background: #E6EFF6; color: var(--secondary); display: flex; align-items: center; justify-content: center;">
+                                    <i data-lucide="{{ g.icon or 'target' }}" style="width: 16px; height: 16px;"></i>
+                                </div>
+                                <span style="font-weight: 600; font-size: 0.9rem;">{{ g.name }}</span>
+                            </div>
+                            <span class="badge badge-success">{{ g.progress_percentage }}%</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 6px;">
+                            <span>Saved: {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(g.current_amount) }}</span>
+                            <span>Target: {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(g.target_amount) }}</span>
+                        </div>
+                        <div class="progress-container">
+                            <div class="progress-bar-fill safe" style="width: {{ g.progress_percentage }}%;"></div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon"><i data-lucide="target"></i></div>
+                <div class="empty-state-title">No Savings Goals Yet</div>
+                <div class="empty-state-desc">Set your first savings target to start tracking progress.</div>
+                <a href="{{ url_for('savings.index') }}" class="btn btn-primary btn-sm">Create Goal</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 4. RECENT TRANSACTIONS & SMART FINANCIAL INSIGHTS -->
+<div class="dashboard-main-side-grid">
+    <!-- Recent Transactions Table -->
+    <div class="card">
+        <div class="card-header-clean">
+            <div>
+                <h3 class="card-title-clean">
+                    <i data-lucide="receipt" style="color: var(--secondary);"></i>
+                    Recent Transactions
+                </h3>
+                <span class="card-subtitle-clean">Latest inflows and outflows</span>
+            </div>
+            <a href="{{ url_for('transactions.index') }}" class="btn btn-outline btn-sm">View All</a>
+        </div>
+
+        <div class="table-responsive">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Title / Payee</th>
+                        <th>Category</th>
+                        <th>Date</th>
+                        <th>Method</th>
+                        <th style="text-align: right;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in recent_transactions %}
+                        <tr>
+                            <td>
+                                <div style="font-weight: 600; font-size: 0.88rem;">{{ t.title }}</div>
+                                {% if t.description %}
+                                    <div style="font-size: 0.74rem; color: var(--text-secondary);">{{ t.description }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge" style="background-color: var(--sidebar); color: var(--secondary);">
+                                    {{ t.category_name }}
+                                </span>
+                            </td>
+                            <td style="font-size: 0.82rem; color: var(--text-secondary);">
+                                {{ t.date.strftime('%d %b %Y') }}
+                            </td>
+                            <td style="font-size: 0.82rem;">{{ t.payment_method }}</td>
+                            <td style="text-align: right;">
+                                <span class="tx-amount {{ t.type }}">
+                                    {% if t.type == 'income' %}+{% else %}-{% endif %}{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(t.amount) }}
+                                </span>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: var(--text-secondary); padding: 30px;">
+                                No recent transactions recorded. Click "Add Record" above to get started.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Financial Insights (Derived From Actual Data) -->
+    <div class="card">
+        <div class="card-header-clean">
+            <div>
+                <h3 class="card-title-clean">
+                    <i data-lucide="sparkles" style="color: var(--secondary);"></i>
+                    Smart Insights
+                </h3>
+                <span class="card-subtitle-clean">Computed From Your Real Data</span>
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+            {% for ins in metrics.insights %}
+                <div style="padding: 14px; border-radius: 14px; background-color: var(--background); border-left: 3px solid var(--secondary); display: flex; gap: 12px;">
+                    <div style="color: var(--secondary); flex-shrink: 0; margin-top: 2px;">
+                        <i data-lucide="{{ ins.icon }}" style="width: 18px; height: 18px;"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; font-size: 0.86rem; color: var(--text-primary); margin-bottom: 2px;">{{ ins.title }}</div>
+                        <div style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4;">{{ ins.text }}</div>
+                    </div>
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 24px; color: var(--text-secondary); font-size: 0.84rem;">
+                    Record more transactions to unlock personalized financial insights and recommendations.
+                </div>
+            {% endfor %}
+
+            <!-- Quick Snapshot Box -->
+            <div style="margin-top: 8px; padding: 14px; border-radius: 12px; background: linear-gradient(135deg, #E6EFF6 0%, #F3F7FA 100%); border: 1px solid var(--border);">
+                <div style="font-size: 0.74rem; font-weight: 600; color: var(--secondary); text-transform: uppercase; margin-bottom: 6px;">Daily Spending Velocity</div>
+                <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">
+                    {{ current_user.currency_symbol or '₹' }}{{ "{:,.1f}".format(metrics.avg_daily_spend) }} <span style="font-size: 0.78rem; font-weight: 500; color: var(--text-secondary);">/ day</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block page_title %}Financial Analytics & Intelligence{% endblock %}
+
+{% block content %}
+<!-- Top Header & Period Selector -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px;">
+    <div>
+        <h2 style="font-size: 1.35rem; font-weight: 700; color: var(--text-primary); margin: 0;">Financial Analytics & Intelligence</h2>
+        <span style="font-size: 0.82rem; color: var(--text-secondary);">Comprehensive audit of cashflow, savings velocity, spending trends, and category distribution</span>
+    </div>
+
+    <!-- Monthly vs Yearly Controls -->
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <!-- View Toggle Pills -->
+        <div style="display: inline-flex; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 3px;">
+            <a href="{{ url_for('analytics.index', view='monthly', month=selected_month) }}"
+               class="btn btn-sm {% if view_type == 'monthly' %}btn-primary{% else %}btn-outline{% endif %}"
+               style="border: none; border-radius: 9px; font-size: 0.82rem;">
+                Monthly View
+            </a>
+            <a href="{{ url_for('analytics.index', view='yearly', year=selected_year) }}"
+               class="btn btn-sm {% if view_type == 'yearly' %}btn-primary{% else %}btn-outline{% endif %}"
+               style="border: none; border-radius: 9px; font-size: 0.82rem;">
+                Yearly View
+            </a>
+        </div>
+
+        <!-- Period Dropdown Form -->
+        <form action="{{ url_for('analytics.index') }}" method="GET" style="display: inline-flex; align-items: center;">
+            <input type="hidden" name="view" value="{{ view_type }}">
+            {% if view_type == 'yearly' %}
+                <select name="year" class="form-select" onchange="this.form.submit()" style="padding: 6px 12px; font-size: 0.84rem; font-weight: 600;">
+                    {% for y in distinct_years %}
+                        <option value="{{ y }}" {% if selected_year == y %}selected{% endif %}>Year {{ y }}</option>
+                    {% endfor %}
+                </select>
+            {% else %}
+                <select name="month" class="form-select" onchange="this.form.submit()" style="padding: 6px 12px; font-size: 0.84rem; font-weight: 600;">
+                    {% for m in distinct_months %}
+                        <option value="{{ m }}" {% if selected_month == m %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- 4 Executive KPI Cards (INR ₹) -->
+<div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 24px;">
+    <!-- Savings Rate -->
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Savings Rate</span>
+            <div class="kpi-icon-box savings"><i data-lucide="percent"></i></div>
+        </div>
+        <div class="kpi-amount" style="color: var(--secondary);">
+            {{ savings_rate }}%
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.76rem; color: {% if savings_rate >= 20 %}#4b6e55{% else %}#856a31{% endif %}; font-weight: 600;">
+                {% if savings_rate >= 20 %}Above 20% Standard Benchmark{% else %}Below 20% Benchmark Target{% endif %}
+            </span>
+        </div>
+    </div>
+
+    <!-- Daily Average Spend -->
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Average Daily Outflow</span>
+            <div class="kpi-icon-box expense"><i data-lucide="calendar"></i></div>
+        </div>
+        <div class="kpi-amount">
+            {{ current_user.currency_symbol or '₹' }}{{ "{:,.1f}".format(avg_daily_spend) }}
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">Daily consumption pace</span>
+        </div>
+    </div>
+
+    <!-- Highest Spending Category -->
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Top Expense Category</span>
+            <div class="kpi-icon-box expense"><i data-lucide="pie-chart"></i></div>
+        </div>
+        <div class="kpi-amount" style="font-size: 1.35rem; color: var(--text-primary);">
+            {{ highest_cat.name }}
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">
+                {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(highest_cat.amount) }} ({{ highest_cat.percentage }}% of spend)
+            </span>
+        </div>
+    </div>
+
+    <!-- Net Surplus / Retained Capital -->
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Period Net Surplus</span>
+            <div class="kpi-icon-box balance"><i data-lucide="shield-check"></i></div>
+        </div>
+        <div class="kpi-amount" style="color: {% if net_savings >= 0 %}#4b6e55{% else %}#8c4747{% endif %};">
+            {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(net_savings) }}
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">Inflow minus Outflow</span>
+        </div>
+    </div>
+</div>
+
+<!-- Financial Comparison Banner (MoM / YoY Comparison) -->
+<div class="card" style="margin-bottom: 24px; padding: 18px 22px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+        <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin: 0; display: inline-flex; align-items: center; gap: 6px;">
+            <i data-lucide="git-compare" style="width: 17px; height: 17px; color: var(--secondary);"></i>
+            Financial Velocity & Comparative Shifts (vs Previous Period)
+        </h4>
+        <span style="font-size: 0.76rem; color: var(--text-secondary);">Period: {{ period_label }}</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+        <!-- Inflow Comparison -->
+        <div style="background: var(--background); border-radius: 12px; padding: 12px 16px; border: 1px solid var(--border);">
+            <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Income Velocity</div>
+            <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 4px;">
+                <span style="font-size: 1.2rem; font-weight: 700; color: #4b6e55;">
+                    {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(period_income) }}
+                </span>
+                <span class="badge {% if income_change_pct >= 0 %}badge-success{% else %}badge-danger{% endif %}" style="font-size: 0.72rem;">
+                    {% if income_change_pct >= 0 %}+{% endif %}{{ income_change_pct }}%
+                </span>
+            </div>
+            <div style="font-size: 0.74rem; color: var(--text-secondary); margin-top: 2px;">
+                {% if income_change_pct >= 0 %}Expansion in revenue streams{% else %}Contraction in inflows{% endif %}
+            </div>
+        </div>
+
+        <!-- Outflow Comparison -->
+        <div style="background: var(--background); border-radius: 12px; padding: 12px 16px; border: 1px solid var(--border);">
+            <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Expense Burn</div>
+            <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 4px;">
+                <span style="font-size: 1.2rem; font-weight: 700; color: #8c4747;">
+                    {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(period_expense) }}
+                </span>
+                <span class="badge {% if expense_change_pct <= 0 %}badge-success{% else %}badge-danger{% endif %}" style="font-size: 0.72rem;">
+                    {% if expense_change_pct >= 0 %}+{% endif %}{{ expense_change_pct }}%
+                </span>
+            </div>
+            <div style="font-size: 0.74rem; color: var(--text-secondary); margin-top: 2px;">
+                {% if expense_change_pct <= 0 %}Outflow reduced (Disciplined){% else %}Outflow increased vs previous cycle{% endif %}
+            </div>
+        </div>
+
+        <!-- Net Savings Comparison -->
+        <div style="background: var(--background); border-radius: 12px; padding: 12px 16px; border: 1px solid var(--border);">
+            <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Savings Surplus</div>
+            <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 4px;">
+                <span style="font-size: 1.2rem; font-weight: 700; color: var(--secondary);">
+                    {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(net_savings) }}
+                </span>
+                <span class="badge {% if savings_change_pct >= 0 %}badge-success{% else %}badge-warning{% endif %}" style="font-size: 0.72rem;">
+                    {% if savings_change_pct >= 0 %}+{% endif %}{{ savings_change_pct }}%
+                </span>
+            </div>
+            <div style="font-size: 0.74rem; color: var(--text-secondary); margin-top: 2px;">
+                {% if savings_change_pct >= 0 %}Accumulation pace accelerated{% else %}Accumulation pace slowed down{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Multi-Line Financial Trend Chart -->
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header-clean">
+        <div>
+            <h3 class="card-title-clean">
+                <i data-lucide="trending-up" style="color: var(--secondary);"></i>
+                Monthly Spending & Inflow Trends
+            </h3>
+            <span class="card-subtitle-clean">Historical comparison of Income, Expenses, and Net Savings</span>
+        </div>
+    </div>
+    <div style="height: 310px; position: relative;">
+        <canvas id="analyticsTrendChart"></canvas>
+    </div>
+</div>
+
+<!-- Responsive Split Grid: Category Breakdown vs 50/30/20 Rule Analysis -->
+<div class="responsive-equal-grid">
+    <!-- Category-Wise Expense Distribution Card -->
+    <div class="card">
+        <div class="card-header-clean">
+            <div>
+                <h3 class="card-title-clean">
+                    <i data-lucide="pie-chart" style="color: var(--secondary);"></i>
+                    Category-Wise Expense Distribution
+                </h3>
+                <span class="card-subtitle-clean">Detailed expenditure allocation for {{ period_label }}</span>
+            </div>
+        </div>
+
+        <div style="height: 200px; position: relative; margin-bottom: 18px;">
+            <canvas id="analyticsCategoryDoughnut"></canvas>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+            {% for c in category_chart_data %}
+                <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.84rem; margin-bottom: 4px;">
+                        <span style="font-weight: 600;">{{ c.name }} <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: normal;">({{ c.count }} txs)</span></span>
+                        <span style="color: var(--text-secondary); font-weight: 600;">
+                            {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(c.amount) }}
+                            <span style="font-weight: 400; font-size: 0.76rem;">({{ c.percentage }}%)</span>
+                        </span>
+                    </div>
+                    <div class="progress-container" style="height: 7px;">
+                        <div class="progress-bar-fill {% if c.percentage > 35 %}critical{% elif c.percentage > 20 %}warning{% else %}safe{% endif %}"
+                             style="width: {{ c.percentage }}%;"></div>
+                    </div>
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 24px; color: var(--text-secondary);">
+                    No expenditures recorded for {{ period_label }}.
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 50/30/20 Rule Analyzer & Financial Health Scorecard -->
+    <div class="card">
+        <div class="card-header-clean">
+            <div>
+                <h3 class="card-title-clean">
+                    <i data-lucide="award" style="color: var(--secondary);"></i>
+                    50 / 30 / 20 Budgeting Rule Analysis
+                </h3>
+                <span class="card-subtitle-clean">Benchmarking spending allocation against proven wealth principles</span>
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 18px;">
+            <!-- Needs Bar -->
+            <div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.84rem; margin-bottom: 4px;">
+                    <div>
+                        <strong>Essential Needs</strong> (Target: &le;50%)
+                        <div style="font-size: 0.72rem; color: var(--text-secondary);">Food, Rent, Bills, Healthcare, Commute</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-weight: 700;">{{ needs_pct }}%</span>
+                        <div style="font-size: 0.74rem; color: var(--text-secondary);">{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(needs_spent) }}</div>
+                    </div>
+                </div>
+                <div class="progress-container" style="height: 9px;">
+                    <div class="progress-bar-fill {% if needs_pct > 55 %}critical{% elif needs_pct > 50 %}warning{% else %}safe{% endif %}"
+                         style="width: {{ [needs_pct, 100]|min }}%;"></div>
+                </div>
+            </div>
+
+            <!-- Wants Bar -->
+            <div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.84rem; margin-bottom: 4px;">
+                    <div>
+                        <strong>Discretionary Wants</strong> (Target: &le;30%)
+                        <div style="font-size: 0.72rem; color: var(--text-secondary);">Shopping, Entertainment, Dining, Travel</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-weight: 700;">{{ wants_pct }}%</span>
+                        <div style="font-size: 0.74rem; color: var(--text-secondary);">{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(wants_spent) }}</div>
+                    </div>
+                </div>
+                <div class="progress-container" style="height: 9px;">
+                    <div class="progress-bar-fill {% if wants_pct > 35 %}critical{% elif wants_pct > 30 %}warning{% else %}safe{% endif %}"
+                         style="width: {{ [wants_pct, 100]|min }}%;"></div>
+                </div>
+            </div>
+
+            <!-- Savings Bar -->
+            <div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.84rem; margin-bottom: 4px;">
+                    <div>
+                        <strong>Investments & Savings</strong> (Target: &ge;20%)
+                        <div style="font-size: 0.72rem; color: var(--text-secondary);">Emergency reserves, goals, surplus</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-weight: 700;">{{ savings_pct }}%</span>
+                        <div style="font-size: 0.74rem; color: var(--text-secondary);">{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format([0, net_savings]|max) }}</div>
+                    </div>
+                </div>
+                <div class="progress-container" style="height: 9px;">
+                    <div class="progress-bar-fill safe" style="width: {{ [savings_pct, 100]|min }}%;"></div>
+                </div>
+            </div>
+
+            <!-- Health Scorecard Insights -->
+            <div style="margin-top: 6px; padding: 14px 16px; background: var(--background); border-radius: 12px; border: 1px solid var(--border);">
+                <div style="font-size: 0.86rem; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                    <i data-lucide="shield-check" style="width: 16px; height: 16px; color: #4b6e55;"></i>
+                    FINORA Portfolio Rating
+                </div>
+                <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 0; line-height: 1.45;">
+                    {% if savings_rate >= 20 %}
+                        Excellent capital retention discipline. Your savings rate of {{ savings_rate }}% meets global wealth accumulation benchmarks.
+                    {% elif savings_rate > 0 %}
+                        Moderate retention rate. Reducing discretionary categories (Shopping or Dining) can help lift your savings rate above the 20% mark.
+                    {% else %}
+                        Net outflow exceeds revenue for this period. Review critical budget categories to reverse cashflow burn.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    window.finoraTrendData = {{ months_trend|tojson }};
+    window.finoraCategoryData = {{ category_chart_data|tojson }};
+</script>
+{% endblock %}

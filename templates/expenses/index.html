@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+
+{% block page_title %}Expense Management & Spending Analysis{% endblock %}
+
+{% block content %}
+<!-- Top Header & Action Buttons -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px;">
+    <div>
+        <h2 style="font-size: 1.35rem; font-weight: 700; color: var(--text-primary); margin: 0;">Expense Management & Spending</h2>
+        <span style="font-size: 0.82rem; color: var(--text-secondary);">Monitor outflows, track merchant payees, and audit monthly burn rate</span>
+    </div>
+
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-outline" onclick="openAddCategoryModal('expense')">
+            <i data-lucide="folder-plus" style="width: 15px; height: 15px;"></i>
+            <span>New Expense Category</span>
+        </button>
+        <button type="button" class="btn btn-primary" onclick="openModal('addExpenseModal')">
+            <i data-lucide="plus" style="width: 15px; height: 15px;"></i>
+            <span>Record Expense</span>
+        </button>
+    </div>
+</div>
+
+<!-- Top KPI Summary Cards (INR Currency) -->
+<div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">This Month's Spending</span>
+            <div class="kpi-icon-box expense"><i data-lucide="arrow-up-right"></i></div>
+        </div>
+        <div class="kpi-amount" style="color: #8c4747;">
+            {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(current_month_expenses) }}
+        </div>
+        <div class="kpi-footer">
+            <span class="kpi-trend negative" style="display: inline-flex; align-items: center; gap: 4px;">
+                <i data-lucide="activity" style="width: 12px; height: 12px;"></i> Active Outflow
+            </span>
+            <span style="font-size: 0.76rem; color: var(--text-secondary); margin-left: 6px;">Current calendar month</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Daily Average Burn</span>
+            <div class="kpi-icon-box expense"><i data-lucide="gauge"></i></div>
+        </div>
+        <div class="kpi-amount">
+            {{ current_user.currency_symbol or '₹' }}{{ "{:,.1f}".format(avg_daily_spend) }}
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">Pace for current month</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Highest Single Outflow</span>
+            <div class="kpi-icon-box expense"><i data-lucide="alert-triangle"></i></div>
+        </div>
+        <div class="kpi-amount" style="font-size: 1.35rem; color: var(--text-primary);">
+            {% if highest_tx %}
+                {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(highest_tx.amount) }}
+            {% else %}
+                ₹0.00
+            {% endif %}
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">
+                {% if highest_tx %}
+                    {{ highest_tx.title }} ({{ highest_tx.category_name }})
+                {% else %}
+                    No expense records
+                {% endif %}
+            </span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">All-Time Total Outflow</span>
+            <div class="kpi-icon-box expense"><i data-lucide="credit-card"></i></div>
+        </div>
+        <div class="kpi-amount">
+            {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(all_time_expenses) }}
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">Lifetime cumulative expenditure</span>
+        </div>
+    </div>
+</div>
+
+<!-- Category Filter Pills (Quick Toggle Bar) -->
+<div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; margin-bottom: 18px; -webkit-overflow-scrolling: touch;">
+    <a href="{{ url_for('expenses.index', month=month_filter, sort=sort_by) }}"
+       class="btn btn-sm {% if not category_filter %}btn-primary{% else %}btn-outline{% endif %}"
+       style="white-space: nowrap; border-radius: 20px; font-size: 0.82rem;">
+        All Categories
+    </a>
+    {% for c in expense_categories %}
+        <a href="{{ url_for('expenses.index', category_id=c.id, month=month_filter, sort=sort_by) }}"
+           class="btn btn-sm {% if category_filter == c.id|string %}btn-primary{% else %}btn-outline{% endif %}"
+           style="white-space: nowrap; border-radius: 20px; font-size: 0.82rem;">
+            {{ c.name }}
+        </a>
+    {% endfor %}
+</div>
+
+<!-- Filters & Search Toolbar -->
+<div class="card" style="margin-bottom: 24px; padding: 18px 22px;">
+    <form action="{{ url_for('expenses.index') }}" method="GET" class="tx-filter-grid">
+        <!-- Search Keyword -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">Keyword Search</label>
+            <input type="text" name="search" class="form-control" placeholder="Search merchant, memo..." value="{{ search_query }}">
+        </div>
+
+        <!-- Category Dropdown Filter -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">Category</label>
+            <select name="category_id" class="form-select">
+                <option value="">All Categories</option>
+                {% for c in expense_categories %}
+                    <option value="{{ c.id }}" {% if category_filter == c.id|string %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Month Filter -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">Billing Month</label>
+            <select name="month" class="form-select">
+                <option value="all">All Time</option>
+                {% for m in available_months %}
+                    <option value="{{ m.value }}" {% if month_filter == m.value %}selected{% endif %}>{{ m.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Sort Option -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">Sort By</label>
+            <select name="sort" class="form-select">
+                <option value="date_desc" {% if sort_by == 'date_desc' %}selected{% endif %}>Date: Newest First</option>
+                <option value="date_asc" {% if sort_by == 'date_asc' %}selected{% endif %}>Date: Oldest First</option>
+                <option value="amount_desc" {% if sort_by == 'amount_desc' %}selected{% endif %}>Amount: High to Low</option>
+                <option value="amount_asc" {% if sort_by == 'amount_asc' %}selected{% endif %}>Amount: Low to High</option>
+            </select>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+            <button type="submit" class="btn btn-primary" style="padding: 10px 16px;">
+                <i data-lucide="filter" style="width: 15px; height: 15px;"></i>
+                <span>Filter</span>
+            </button>
+            <a href="{{ url_for('expenses.index') }}" class="btn btn-outline" style="padding: 10px 14px;">Reset</a>
+        </div>
+    </form>
+
+    {% if search_query or category_filter or month_filter %}
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.82rem; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div>
+                Filtered results: <strong>{{ filtered_count }}</strong> items &bull; Total Filtered Outflow: <strong style="color: #8c4747;">-{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(filtered_total) }}</strong>
+            </div>
+            <a href="{{ url_for('expenses.index') }}" style="color: var(--secondary); text-decoration: none; font-weight: 600;">Clear all filters &times;</a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Expense Breakdown & Ledger Grid -->
+<div class="responsive-split-grid">
+    <!-- Left Column: Monthly Category Breakdown & 6-Month Trend Chart -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        <!-- Category-wise breakdown list -->
+        <div class="card">
+            <div class="card-header-clean">
+                <div>
+                    <h3 class="card-title-clean">
+                        <i data-lucide="pie-chart" style="color: var(--secondary);"></i>
+                        Monthly Breakdown
+                    </h3>
+                    <span class="card-subtitle-clean">Category distribution & budget utilization</span>
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                {% for b in expense_breakdown %}
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 6px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: {{ b.color }};"></span>
+                                <span style="font-weight: 600;">{{ b.name }}</span>
+                                <span style="font-size: 0.72rem; color: var(--text-secondary); background: var(--sidebar); padding: 2px 6px; border-radius: 8px;">{{ b.count }} txs</span>
+                            </div>
+                            <span style="font-weight: 600; color: var(--text-primary);">
+                                {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(b.amount) }}
+                                <span style="font-weight: 400; color: var(--text-secondary); font-size: 0.78rem;">({{ b.percentage }}%)</span>
+                            </span>
+                        </div>
+                        
+                        <div class="progress-container" style="height: 7px; margin-bottom: 4px;">
+                            <div class="progress-bar-fill {% if b.percentage > 35 %}critical{% elif b.percentage > 20 %}warning{% else %}safe{% endif %}"
+                                 style="width: {{ b.percentage }}%;"></div>
+                        </div>
+
+                        {% if b.budget_limit %}
+                            <div style="display: flex; justify-content: space-between; font-size: 0.74rem; color: var(--text-secondary);">
+                                <span>Budget Limit: {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(b.budget_limit) }}</span>
+                                <span style="font-weight: 600; {% if b.budget_utilization > 100 %}color: #8c4747;{% elif b.budget_utilization > 75 %}color: #9c7b3e;{% else %}color: #4b6e55;{% endif %}">
+                                    {{ b.budget_utilization }}% used
+                                </span>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div style="text-align: center; padding: 24px; color: var(--text-secondary);">
+                        No expenses recorded this month. Click "Record Expense" to log transactions.
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 6-Month Expense Trends Bar Chart -->
+        <div class="card">
+            <div class="card-header-clean">
+                <div>
+                    <h3 class="card-title-clean">
+                        <i data-lucide="bar-chart-2" style="color: #8c4747;"></i>
+                        Monthly Expense Trend
+                    </h3>
+                    <span class="card-subtitle-clean">Expenditure pace over the last 6 months</span>
+                </div>
+            </div>
+            <div style="height: 190px; position: relative;">
+                <canvas id="expenseTrendsBarChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Expenses Ledger Table -->
+    <div class="card">
+        <div class="card-header-clean">
+            <div>
+                <h3 class="card-title-clean">
+                    <i data-lucide="receipt" style="color: var(--secondary);"></i>
+                    Expense Ledger
+                </h3>
+                <span class="card-subtitle-clean">Itemized record of all expenditures</span>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                {{ expense_transactions|length }} shown
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Payee / Item</th>
+                        <th>Category</th>
+                        <th>Method</th>
+                        <th style="text-align: right;">Amount</th>
+                        <th style="text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in expense_transactions %}
+                        <tr>
+                            <td style="white-space: nowrap; font-size: 0.82rem; color: var(--text-secondary);">
+                                {{ t.date.strftime('%d %b %Y') }}
+                            </td>
+                            <td>
+                                <div style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">{{ t.title }}</div>
+                                {% if t.description %}
+                                    <div style="font-size: 0.74rem; color: var(--text-secondary);">{{ t.description }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge badge-expense">
+                                    <i data-lucide="trending-down" style="width: 11px; height: 11px; margin-right: 3px;"></i>
+                                    {{ t.category_name }}
+                                </span>
+                            </td>
+                            <td style="font-size: 0.82rem; color: var(--text-primary);">{{ t.payment_method }}</td>
+                            <td style="text-align: right;">
+                                <span class="tx-amount expense">-{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(t.amount) }}</span>
+                            </td>
+                            <td style="text-align: center;">
+                                <div style="display: inline-flex; gap: 6px;">
+                                    <button type="button" class="btn btn-outline btn-sm" title="Edit Record"
+                                            onclick="openEditTransactionModal('{{ t.id }}', '{{ t.title|replace('\'', '\\\'') }}', '{{ t.amount }}', 'expense', '{{ t.category_id or '' }}', '{{ t.date.strftime('%Y-%m-%d') }}', '{{ t.payment_method }}', '{{ (t.description or '')|replace('\'', '\\\'') }}', '{{ (t.notes or '')|replace('\'', '\\\'') }}')">
+                                        <i data-lucide="edit-2" style="width: 13px; height: 13px;"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-danger btn-sm" title="Delete Record"
+                                            onclick="openDeleteConfirmModal('{{ t.id }}', '{{ t.title|replace('\'', '\\\'') }}')">
+                                        <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                                No expense records found for this filter.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        {% if pagination.pages > 1 %}
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border);">
+                <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                    Page {{ pagination.page }} of {{ pagination.pages }} ({{ pagination.total }} total records)
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    {% if pagination.has_prev %}
+                        <a href="{{ url_for('expenses.index', page=pagination.prev_num, search=search_query, category_id=category_filter, month=month_filter, sort=sort_by) }}" class="btn btn-outline btn-sm">Previous</a>
+                    {% endif %}
+                    {% if pagination.has_next %}
+                        <a href="{{ url_for('expenses.index', page=pagination.next_num, search=search_query, category_id=category_filter, month=month_filter, sort=sort_by) }}" class="btn btn-outline btn-sm">Next</a>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ADD EXPENSE MODAL -->
+<div class="modal-backdrop-custom" id="addExpenseModal">
+    <div class="modal-dialog-custom">
+        <div class="modal-header-custom">
+            <h3>Record New Expense</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal('addExpenseModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <form action="{{ url_for('transactions.add') }}" method="POST">
+            <input type="hidden" name="type" value="expense">
+            <div class="modal-body-custom">
+                <div class="form-group">
+                    <label class="form-label">Merchant / Payee / Item</label>
+                    <input type="text" name="title" class="form-control" placeholder="e.g. Supermarket Provisions, Electricity Bill, Dining" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Amount ({{ current_user.currency_symbol or '₹' }})</label>
+                    <input type="number" step="0.01" name="amount" class="form-control" placeholder="0.00" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select name="category_id" class="form-select">
+                        {% for c in expense_categories %}
+                            <option value="{{ c.id }}">{{ c.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date</label>
+                    <input type="date" name="date" class="form-control" value="{{ today_str }}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Payment Method</label>
+                    <select name="payment_method" class="form-select">
+                        <option value="UPI">UPI</option>
+                        <option value="Credit Card">Credit Card</option>
+                        <option value="Debit Card">Debit Card</option>
+                        <option value="Net Banking">Net Banking</option>
+                        <option value="Cash">Cash</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description / Memo</label>
+                    <input type="text" name="description" class="form-control" placeholder="e.g. Grocery items and fruits">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Private Notes</label>
+                    <textarea name="notes" class="form-control" rows="2" placeholder="Optional notes"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addExpenseModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Expense</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Shared Edit, Delete and Custom Category Modals -->
+{% include "transactions/modals.html" ignore missing %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize Expense trends data for Chart.js
+    window.finoraExpenseTrends = {{ monthly_trends|tojson }};
+</script>
+{% endblock %}

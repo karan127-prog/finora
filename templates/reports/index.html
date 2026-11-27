@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block page_title %}Reports & Official Statements{% endblock %}
+
+{% block content %}
+<!-- Top Header & Primary Action Buttons -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; flex-wrap: wrap; gap: 14px;">
+    <div>
+        <h2 style="font-size: 1.35rem; font-weight: 700; color: var(--text-primary); margin: 0;">Financial Statements & Reports</h2>
+        <span style="font-size: 0.82rem; color: var(--text-secondary);">Generate audit-grade PDF financial statements and export raw transaction data in CSV</span>
+    </div>
+
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="{{ url_for('reports.export_csv', start_date=start_date, end_date=end_date, type=tx_type, category_id=category_id) }}" class="btn btn-outline">
+            <i data-lucide="file-spreadsheet" style="width: 16px; height: 16px;"></i>
+            <span>Export CSV</span>
+        </a>
+        <a href="{{ url_for('reports.export_pdf', start_date=start_date, end_date=end_date, type=tx_type, category_id=category_id) }}" class="btn btn-primary">
+            <i data-lucide="file-down" style="width: 16px; height: 16px;"></i>
+            <span>Export Official PDF</span>
+        </a>
+    </div>
+</div>
+
+<!-- Statement Filter Card -->
+<div class="card" style="margin-bottom: 24px; padding: 20px 24px;">
+    <form action="{{ url_for('reports.index') }}" method="GET" class="tx-filter-grid">
+        <!-- Start Date -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">Statement Start Date</label>
+            <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+        </div>
+
+        <!-- End Date -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">Statement End Date</label>
+            <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+        </div>
+
+        <!-- Transaction Type -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">Transaction Type</label>
+            <select name="type" class="form-select">
+                <option value="all" {% if tx_type == 'all' %}selected{% endif %}>All Cashflows</option>
+                <option value="income" {% if tx_type == 'income' %}selected{% endif %}>Income Only (+)</option>
+                <option value="expense" {% if tx_type == 'expense' %}selected{% endif %}>Expense Only (-)</option>
+            </select>
+        </div>
+
+        <!-- Category Filter -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">Category</label>
+            <select name="category_id" class="form-select">
+                <option value="">All Categories</option>
+                {% for c in categories %}
+                    <option value="{{ c.id }}" {% if category_id == c.id|string %}selected{% endif %}>{{ c.name }} ({{ c.type }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+            <button type="submit" class="btn btn-primary" style="padding: 10px 18px;">
+                <i data-lucide="filter" style="width: 15px; height: 15px;"></i>
+                <span>Apply Filter</span>
+            </button>
+            <a href="{{ url_for('reports.index') }}" class="btn btn-outline" style="padding: 10px 14px;">Reset</a>
+        </div>
+    </form>
+</div>
+
+<!-- Statement Executive Summary (4 KPI Cards in INR ₹) -->
+<div class="kpi-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 24px;">
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Statement Inflow</span>
+            <div class="kpi-icon-box income"><i data-lucide="arrow-down-left"></i></div>
+        </div>
+        <div class="kpi-amount" style="color: #4b6e55;">
+            {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(total_income) }}
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">Total period revenues</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Statement Outflow</span>
+            <div class="kpi-icon-box expense"><i data-lucide="arrow-up-right"></i></div>
+        </div>
+        <div class="kpi-amount" style="color: #8c4747;">
+            {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(total_expenses) }}
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">Total period expenditures</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Net Accumulated Surplus</span>
+            <div class="kpi-icon-box balance"><i data-lucide="wallet"></i></div>
+        </div>
+        <div class="kpi-amount" style="color: {% if net_savings >= 0 %}#4b6e55{% else %}#8c4747{% endif %};">
+            {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(net_savings) }}
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">Retained capital buffer</span>
+        </div>
+    </div>
+
+    <div class="kpi-card">
+        <div class="kpi-top">
+            <span class="kpi-label">Effective Savings Rate</span>
+            <div class="kpi-icon-box savings"><i data-lucide="percent"></i></div>
+        </div>
+        <div class="kpi-amount" style="color: var(--secondary);">
+            {{ savings_rate }}%
+        </div>
+        <div class="kpi-footer">
+            <span style="font-size: 0.78rem; color: var(--text-secondary);">Of total income retained</span>
+        </div>
+    </div>
+</div>
+
+<!-- Category Summary Table (if any expenses) -->
+{% if category_summary %}
+    <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header-clean">
+            <div>
+                <h3 class="card-title-clean">Category Spending Summary</h3>
+                <span class="card-subtitle-clean">Expenditure distribution across active categories during statement period</span>
+            </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+            {% for cs in category_summary %}
+                <div style="padding: 12px 16px; background: var(--background); border-radius: 12px; border: 1px solid var(--border);">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.84rem; margin-bottom: 4px;">
+                        <span style="font-weight: 600;">{{ cs.name }}</span>
+                        <span style="font-weight: 700; color: var(--text-primary);">{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(cs.amount) }}</span>
+                    </div>
+                    <div class="progress-container" style="height: 6px;">
+                        <div class="progress-bar-fill {% if cs.percentage > 35 %}critical{% elif cs.percentage > 20 %}warning{% else %}safe{% endif %}"
+                             style="width: {{ cs.percentage }}%;"></div>
+                    </div>
+                    <div style="text-align: right; font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px;">{{ cs.percentage }}% of spend</div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+
+<!-- Statement Ledger Table Preview -->
+<div class="card">
+    <div class="card-header-clean">
+        <div>
+            <h3 class="card-title-clean">Itemized Statement Ledger</h3>
+            <span class="card-subtitle-clean">Preview of {{ transactions|length }} transactions included in this statement report</span>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-secondary);">
+            {{ start_date }} to {{ end_date }}
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Payee / Title</th>
+                    <th>Category</th>
+                    <th>Method</th>
+                    <th>Type</th>
+                    <th style="text-align: right;">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in transactions %}
+                    <tr>
+                        <td style="white-space: nowrap; font-size: 0.82rem; color: var(--text-secondary);">
+                            {{ t.date.strftime('%d %b %Y') }}
+                        </td>
+                        <td>
+                            <div style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">{{ t.title }}</div>
+                            {% if t.description %}
+                                <div style="font-size: 0.74rem; color: var(--text-secondary);">{{ t.description }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge" style="background-color: var(--sidebar); color: var(--secondary);">
+                                {{ t.category_name }}
+                            </span>
+                        </td>
+                        <td style="font-size: 0.82rem; color: var(--text-primary);">{{ t.payment_method }}</td>
+                        <td>
+                            <span class="badge {% if t.type == 'income' %}badge-income{% else %}badge-expense{% endif %}">
+                                {{ t.type.capitalize() }}
+                            </span>
+                        </td>
+                        <td style="text-align: right;">
+                            <span class="tx-amount {{ t.type }}">
+                                {% if t.type == 'income' %}+{% else %}-{% endif %}{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(t.amount) }}
+                            </span>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                            No transactions recorded within this selected date range or category filter.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

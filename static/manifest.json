@@ -1,0 +1,26 @@
+{
+  "name": "FINORA - Personal Finance & Budget Planner",
+  "short_name": "FINORA",
+  "description": "Your Money. Your Control. Modern personal finance and budget management platform.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F3F7FA",
+  "theme_color": "#A9C5DC",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "productivity", "utilities"],
+  "screenshots": []
+}

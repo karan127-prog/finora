@@ -1,0 +1,159 @@
+<!-- Reusable Edit & Delete Modals for Transactions, Income & Expenses -->
+<div class="modal-backdrop-custom" id="editTransactionModal">
+    <div class="modal-dialog-custom">
+        <div class="modal-header-custom">
+            <h3>Edit Transaction</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal('editTransactionModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <form id="editTransactionForm" method="POST">
+            <div class="modal-body-custom">
+                <div class="form-group">
+                    <label class="form-label">Transaction Type</label>
+                    <select name="type" class="form-select" id="editTxType" onchange="filterEditCategories(this.value)">
+                        <option value="expense">Expense (-)</option>
+                        <option value="income">Income (+)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Title / Payee / Payer</label>
+                    <input type="text" name="title" class="form-control" id="editTxTitle" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Amount ({{ current_user.currency_symbol or '₹' }})</label>
+                    <input type="number" step="0.01" name="amount" class="form-control" id="editTxAmount" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select name="category_id" class="form-select" id="editTxCategory">
+                        <option value="">-- Select Category --</option>
+                        {% if income_categories is defined and income_categories %}
+                            <optgroup label="Income Streams" id="optgroupIncome">
+                                {% for c in income_categories %}
+                                    <option value="{{ c.id }}" data-type="income">{{ c.name }}</option>
+                                {% endfor %}
+                            </optgroup>
+                        {% endif %}
+                        {% if expense_categories is defined and expense_categories %}
+                            <optgroup label="Expense Categories" id="optgroupExpense">
+                                {% for c in expense_categories %}
+                                    <option value="{{ c.id }}" data-type="expense">{{ c.name }}</option>
+                                {% endfor %}
+                            </optgroup>
+                        {% endif %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Date</label>
+                    <input type="date" name="date" class="form-control" id="editTxDate" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Payment Method</label>
+                    <select name="payment_method" class="form-select" id="editTxPaymentMethod">
+                        <option value="UPI">UPI</option>
+                        <option value="Net Banking">Net Banking</option>
+                        <option value="Credit Card">Credit Card</option>
+                        <option value="Debit Card">Debit Card</option>
+                        <option value="Direct Transfer">Direct Transfer</option>
+                        <option value="Cash">Cash</option>
+                        <option value="Cheque">Cheque</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description / Memo</label>
+                    <input type="text" name="description" class="form-control" id="editTxDescription" placeholder="Optional description">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Private Notes</label>
+                    <textarea name="notes" class="form-control" id="editTxNotes" rows="2" placeholder="Optional private notes"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editTransactionModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Record</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- DELETE CONFIRMATION MODAL -->
+<div class="modal-backdrop-custom" id="deleteConfirmModal">
+    <div class="modal-dialog-custom" style="max-width: 420px;">
+        <div class="modal-header-custom">
+            <h3 style="color: #924747;">Confirm Delete</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal('deleteConfirmModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <form id="deleteTransactionForm" method="POST">
+            <div class="modal-body-custom">
+                <p style="font-size: 0.9rem;">Are you sure you want to delete <strong id="deleteTxTitleSpan"></strong>?</p>
+                <p style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 6px;">This record will be permanently deleted and your financial statistics will automatically recalibrate.</p>
+            </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('deleteConfirmModal')">Cancel</button>
+                <button type="submit" class="btn btn-danger">Delete Record</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ADD CUSTOM CATEGORY MODAL -->
+<div class="modal-backdrop-custom" id="addCategoryModal">
+    <div class="modal-dialog-custom" style="max-width: 450px;">
+        <div class="modal-header-custom">
+            <h3 id="addCategoryModalTitle">Add Custom Category</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal('addCategoryModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <form action="{{ url_for('transactions.add_category') }}" method="POST">
+            <div class="modal-body-custom">
+                <div class="form-group">
+                    <label class="form-label">Category Type</label>
+                    <select name="type" class="form-select" id="customCategoryTypeSelect">
+                        <option value="income">Income Stream</option>
+                        <option value="expense">Expense Category</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category Name</label>
+                    <input type="text" name="name" class="form-control" placeholder="e.g. Consulting, Pet Care, Crypto" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Icon</label>
+                    <select name="icon" class="form-select">
+                        <option value="tag">Tag</option>
+                        <option value="briefcase">Briefcase</option>
+                        <option value="laptop">Laptop</option>
+                        <option value="shopping-bag">Shopping Bag</option>
+                        <option value="car">Car</option>
+                        <option value="home">Home</option>
+                        <option value="coffee">Coffee</option>
+                        <option value="activity">Activity / Health</option>
+                        <option value="gift">Gift</option>
+                        <option value="wallet">Wallet</option>
+                        <option value="pie-chart">Chart</option>
+                        <option value="trending-up">Trending Up</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Badge Color Accent</label>
+                    <select name="color" class="form-select">
+                        <option value="#789BB8">Muted Navy (#789BB8)</option>
+                        <option value="#8EAD98">Sage Green (#8EAD98)</option>
+                        <option value="#D6B77A">Soft Gold (#D6B77A)</option>
+                        <option value="#D59A9A">Rose Coral (#D59A9A)</option>
+                        <option value="#A9C5DC">Powder Blue (#A9C5DC)</option>
+                        <option value="#8799A8">Slate Silver (#8799A8)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addCategoryModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Category</button>
+            </div>
+        </form>
+    </div>
+</div>

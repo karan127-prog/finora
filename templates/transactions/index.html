@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block page_title %}Transaction Management{% endblock %}
+
+{% block content %}
+<!-- Top Metrics & Action Bar -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 14px;">
+    <div style="display: flex; gap: 14px; flex-wrap: wrap;">
+        <div style="padding: 10px 18px; background-color: var(--card); border: 1px solid var(--border); border-radius: 12px;">
+            <div style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase;">Total Transactions</div>
+            <div style="font-size: 1.1rem; font-weight: 700;">{{ total_tx_count }}</div>
+        </div>
+        <div style="padding: 10px 18px; background-color: var(--card); border: 1px solid var(--border); border-radius: 12px;">
+            <div style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase;">Filtered Inflow</div>
+            <div style="font-size: 1.1rem; font-weight: 700; color: #4b6e55;">+{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(filtered_income) }}</div>
+        </div>
+        <div style="padding: 10px 18px; background-color: var(--card); border: 1px solid var(--border); border-radius: 12px;">
+            <div style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase;">Filtered Outflow</div>
+            <div style="font-size: 1.1rem; font-weight: 700; color: #8c4747;">-{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(filtered_expense) }}</div>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-outline" onclick="openAddCategoryModal('expense')">
+            <i data-lucide="folder-plus" style="width: 15px; height: 15px;"></i>
+            <span>New Category</span>
+        </button>
+        <a href="{{ url_for('reports.export_csv', start_date=start_date, end_date=end_date) }}" class="btn btn-outline">
+            <i data-lucide="download" style="width: 16px; height: 16px;"></i>
+            <span>Export CSV</span>
+        </a>
+        <button type="button" class="btn btn-primary" onclick="openModal('quickAddModal')">
+            <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+            <span>Add Transaction</span>
+        </button>
+    </div>
+</div>
+
+<!-- Filters Card -->
+<div class="card" style="margin-bottom: 24px; padding: 18px 22px;">
+    <form action="{{ url_for('transactions.index') }}" method="GET" class="tx-filter-grid">
+        <!-- Search Keyword -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">Keyword Search</label>
+            <input type="text" name="search" class="form-control" placeholder="Search by title..." value="{{ search_query }}">
+        </div>
+
+        <!-- Type Filter -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">Type</label>
+            <select name="type" class="form-select">
+                <option value="">All Types</option>
+                <option value="income" {% if type_filter == 'income' %}selected{% endif %}>Income (+)</option>
+                <option value="expense" {% if type_filter == 'expense' %}selected{% endif %}>Expense (-)</option>
+            </select>
+        </div>
+
+        <!-- Category Filter -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">Category</label>
+            <select name="category" class="form-select">
+                <option value="">All Categories</option>
+                {% for c in categories %}
+                    <option value="{{ c.id }}" {% if category_filter == c.id|string %}selected{% endif %}>{{ c.name }} ({{ c.type }})</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Date Range: Start -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">From Date</label>
+            <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+        </div>
+
+        <!-- Date Range: End -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">To Date</label>
+            <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+        </div>
+
+        <!-- Sort Option -->
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.76rem;">Sort By</label>
+            <select name="sort" class="form-select">
+                <option value="date_desc" {% if sort_by == 'date_desc' %}selected{% endif %}>Date: Newest First</option>
+                <option value="date_asc" {% if sort_by == 'date_asc' %}selected{% endif %}>Date: Oldest First</option>
+                <option value="amount_desc" {% if sort_by == 'amount_desc' %}selected{% endif %}>Amount: High to Low</option>
+                <option value="amount_asc" {% if sort_by == 'amount_asc' %}selected{% endif %}>Amount: Low to High</option>
+            </select>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+            <button type="submit" class="btn btn-primary" style="padding: 10px 16px;">
+                <i data-lucide="filter" style="width: 15px; height: 15px;"></i>
+                <span>Filter</span>
+            </button>
+            <a href="{{ url_for('transactions.index') }}" class="btn btn-outline" style="padding: 10px 14px;">Reset</a>
+        </div>
+    </form>
+</div>
+
+<!-- Transactions Table Card -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Title & Description</th>
+                    <th>Category</th>
+                    <th>Method</th>
+                    <th style="text-align: right;">Amount</th>
+                    <th style="text-align: center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in transactions %}
+                    <tr>
+                        <td style="white-space: nowrap; font-size: 0.82rem; color: var(--text-secondary);">
+                            {{ t.date.strftime('%d-%b-%Y') }}
+                        </td>
+                        <td>
+                            <div style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">{{ t.title }}</div>
+                            {% if t.description %}
+                                <div style="font-size: 0.76rem; color: var(--text-secondary);">{{ t.description }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge" style="background-color: var(--sidebar); color: var(--secondary);">
+                                {{ t.category_name }}
+                            </span>
+                        </td>
+                        <td style="font-size: 0.84rem;">{{ t.payment_method }}</td>
+                        <td style="text-align: right;">
+                            <span class="tx-amount {{ t.type }}">
+                                {% if t.type == 'income' %}+{% else %}-{% endif %}{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(t.amount) }}
+                            </span>
+                        </td>
+                        <td style="text-align: center;">
+                            <div style="display: inline-flex; gap: 6px;">
+                                <button type="button" class="btn btn-outline btn-sm" title="Edit"
+                                        onclick="openEditTransactionModal('{{ t.id }}', '{{ t.title|replace('\'', '\\\'') }}', '{{ t.amount }}', '{{ t.type }}', '{{ t.category_id or '' }}', '{{ t.date.strftime('%Y-%m-%d') }}', '{{ t.payment_method }}', '{{ (t.description or '')|replace('\'', '\\\'') }}', '{{ (t.notes or '')|replace('\'', '\\\'') }}')">
+                                    <i data-lucide="edit-2" style="width: 14px; height: 14px;"></i>
+                                </button>
+                                <button type="button" class="btn btn-danger btn-sm" title="Delete"
+                                        onclick="openDeleteConfirmModal('{{ t.id }}', '{{ t.title|replace('\'', '\\\'') }}')">
+                                    <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                            No transactions found matching your criteria.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);">
+            <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                Showing page {{ pagination.page }} of {{ pagination.pages }}
+            </div>
+            <div style="display: flex; gap: 6px;">
+                {% if pagination.has_prev %}
+                    <a href="{{ url_for('transactions.index', page=pagination.prev_num, search=search_query, type=type_filter, category=category_filter, start_date=start_date, end_date=end_date, sort=sort_by) }}" class="btn btn-outline btn-sm">Previous</a>
+                {% endif %}
+                {% if pagination.has_next %}
+                    <a href="{{ url_for('transactions.index', page=pagination.next_num, search=search_query, type=type_filter, category=category_filter, start_date=start_date, end_date=end_date, sort=sort_by) }}" class="btn btn-outline btn-sm">Next</a>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Reusable Shared Modals -->
+{% include "transactions/modals.html" ignore missing %}
+{% endblock %}

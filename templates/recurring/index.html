@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+
+{% block page_title %}Recurring Subscriptions & Fixed Inflows{% endblock %}
+
+{% block content %}
+<!-- Top Metrics & Action Bar -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 14px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; flex: 1; max-width: 820px;">
+        <div style="padding: 12px 18px; background-color: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-subtle);">
+            <div style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.04em;">Active Obligations</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: var(--text-primary); margin-top: 2px;">{{ active_count }} active</div>
+        </div>
+        <div style="padding: 12px 18px; background-color: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-subtle);">
+            <div style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.04em;">Estimated Monthly Outflow</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: #8c4747; margin-top: 2px;">{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(total_recurring_monthly) }}</div>
+        </div>
+        <div style="padding: 12px 18px; background-color: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-subtle);">
+            <div style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.04em;">Due in Next 7 Days</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: var(--secondary); margin-top: 2px;">{{ upcoming_7_days|length }} payment(s)</div>
+        </div>
+        {% if overdue_count > 0 %}
+        <div style="padding: 12px 18px; background-color: #fff4f4; border: 1px solid #ffd2d2; border-radius: 12px; box-shadow: var(--shadow-subtle);">
+            <div style="font-size: 0.72rem; color: #8c4747; text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em;">Overdue Attention</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: #8c4747; margin-top: 2px;">{{ overdue_count }} past due</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <form action="{{ url_for('recurring.process_due') }}" method="POST">
+            <button type="submit" class="btn btn-outline" style="border-color: var(--secondary); color: var(--secondary);" title="Process all payments due on or before today">
+                <i data-lucide="refresh-cw" style="width: 15px; height: 15px;"></i>
+                <span>Execute Due Payments</span>
+            </button>
+        </form>
+        <button type="button" class="btn btn-primary" onclick="openModal('addRecurringModal')">
+            <i data-lucide="plus" style="width: 16px; height: 16px;"></i>
+            <span>Add Recurring Item</span>
+        </button>
+    </div>
+</div>
+
+<!-- Recurring Items Table Card -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Title & Activity</th>
+                    <th>Type</th>
+                    <th>Frequency</th>
+                    <th>Category</th>
+                    <th>Next Due Date</th>
+                    <th>Method</th>
+                    <th style="text-align: right;">Amount</th>
+                    <th style="text-align: center;">Status</th>
+                    <th style="text-align: center;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in recurring_items %}
+                    {% set is_overdue = (r.is_active and r.next_date < today) %}
+                    {% set is_due_soon = (r.is_active and r.next_date >= today and (r.next_date - today).days <= 3) %}
+                    <tr {% if is_overdue %}style="background-color: rgba(213, 154, 154, 0.08);"{% endif %}>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">{{ r.title }}</div>
+                                {% if is_overdue %}
+                                    <span class="badge badge-danger" style="font-size: 0.65rem; padding: 2px 6px;">Overdue</span>
+                                {% elif is_due_soon %}
+                                    <span class="badge badge-warning" style="font-size: 0.65rem; padding: 2px 6px;">Due in {{ (r.next_date - today).days }}d</span>
+                                {% endif %}
+                            </div>
+                            {% if r.description %}
+                                <div style="font-size: 0.74rem; color: var(--text-secondary);">{{ r.description }}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge {% if r.type == 'income' %}badge-income{% else %}badge-expense{% endif %}">
+                                {{ r.type.capitalize() }}
+                            </span>
+                        </td>
+                        <td style="font-size: 0.84rem; text-transform: capitalize; color: var(--text-primary); font-weight: 500;">
+                            {{ r.frequency }}
+                        </td>
+                        <td>
+                            <span class="badge" style="background-color: var(--sidebar); color: var(--secondary);">
+                                {{ r.category_name }}
+                            </span>
+                        </td>
+                        <td style="font-size: 0.84rem; font-weight: 600; color: {% if is_overdue %}#8c4747{% else %}var(--text-primary){% endif %};">
+                            {{ r.next_date.strftime('%d-%b-%Y') }}
+                        </td>
+                        <td style="font-size: 0.84rem; color: var(--text-secondary);">{{ r.payment_method }}</td>
+                        <td style="text-align: right;">
+                            <span class="tx-amount {{ r.type }}">
+                                {% if r.type == 'income' %}+{% else %}-{% endif %}{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(r.amount) }}
+                            </span>
+                        </td>
+                        <td style="text-align: center;">
+                            <form action="{{ url_for('recurring.toggle', id=r.id) }}" method="POST">
+                                <button type="submit" class="badge {% if r.is_active %}badge-success{% else %}badge-warning{% endif %}" style="border: none; cursor: pointer; transition: opacity 0.2s;" title="Click to {% if r.is_active %}Pause{% else %}Resume{% endif %}">
+                                    {% if r.is_active %}Active{% else %}Paused{% endif %}
+                                </button>
+                            </form>
+                        </td>
+                        <td style="text-align: center;">
+                            <div style="display: inline-flex; gap: 6px;">
+                                <button type="button" class="btn btn-outline btn-sm" style="padding: 4px 7px;"
+                                        onclick="openEditRecurringModal('{{ r.id }}', '{{ r.title|replace('\'', '\\\'') }}', '{{ r.amount }}', '{{ r.type }}', '{{ r.category_id or '' }}', '{{ r.frequency }}', '{{ r.next_date.strftime('%Y-%m-%d') }}', '{{ r.payment_method }}', '{{ (r.description or '')|replace('\'', '\\\'') }}')"
+                                        title="Edit Recurring Item">
+                                    <i data-lucide="edit-2" style="width: 13px; height: 13px;"></i>
+                                </button>
+                                <form action="{{ url_for('recurring.delete', id=r.id) }}" method="POST" onsubmit="return confirm('Delete recurring activity \'{{ r.title }}\'?')" style="display: inline;">
+                                    <button type="submit" class="btn btn-danger btn-sm" style="padding: 4px 7px;" title="Delete Activity">
+                                        <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="9" style="text-align: center; padding: 42px; color: var(--text-secondary);">
+                            <div style="max-width: 380px; margin: 0 auto;">
+                                <i data-lucide="repeat" style="width: 36px; height: 36px; color: var(--primary); margin-bottom: 8px;"></i>
+                                <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">No recurring activities configured</div>
+                                <div style="font-size: 0.82rem; margin-bottom: 14px;">Automate your monthly salary, apartment rent, internet bills, or subscriptions without manual entry.</div>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="openModal('addRecurringModal')">Add First Recurring Payment</button>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ADD RECURRING MODAL -->
+<div class="modal-backdrop-custom" id="addRecurringModal">
+    <div class="modal-dialog-custom">
+        <div class="modal-header-custom">
+            <h3>Add Recurring Activity</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal('addRecurringModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <form action="{{ url_for('recurring.add') }}" method="POST">
+            <div class="modal-body-custom">
+                <div class="form-group">
+                    <label class="form-label">Activity Type</label>
+                    <select name="type" class="form-select">
+                        <option value="expense" selected>Expense (Outgoing Payment / Subscription)</option>
+                        <option value="income">Income (Incoming Salary / Stipend / Client)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Title / Payee</label>
+                    <input type="text" name="title" class="form-control" placeholder="e.g. Apartment Rent, Internet Fiber, Monthly Salary, Netflix" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Amount ({{ current_user.currency_symbol or '₹' }})</label>
+                    <input type="number" step="0.01" name="amount" class="form-control" placeholder="0.00" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select name="category_id" class="form-select">
+                        {% for c in categories %}
+                            <option value="{{ c.id }}">{{ c.name }} ({{ c.type }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Frequency</label>
+                    <select name="frequency" class="form-select">
+                        <option value="monthly" selected>Monthly (Every month)</option>
+                        <option value="weekly">Weekly (Every 7 days)</option>
+                        <option value="yearly">Yearly (Annual payment)</option>
+                        <option value="daily">Daily</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">First / Next Due Date</label>
+                    <input type="date" name="start_date" class="form-control" value="{{ today_str }}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Payment Method</label>
+                    <select name="payment_method" class="form-select">
+                        <option value="Net Banking">Net Banking</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Credit Card">Credit Card</option>
+                        <option value="Debit Card">Debit Card</option>
+                        <option value="Auto-Debit">Auto-Debit</option>
+                        <option value="Cash">Cash</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description (Optional)</label>
+                    <input type="text" name="description" class="form-control" placeholder="Notes, account number, or vendor details">
+                </div>
+            </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addRecurringModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Recurring Item</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT RECURRING MODAL -->
+<div class="modal-backdrop-custom" id="editRecurringModal">
+    <div class="modal-dialog-custom">
+        <div class="modal-header-custom">
+            <h3>Edit Recurring Activity</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal('editRecurringModal')">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <form id="editRecurringForm" method="POST">
+            <div class="modal-body-custom">
+                <div class="form-group">
+                    <label class="form-label">Activity Type</label>
+                    <select name="type" id="editRecurringType" class="form-select">
+                        <option value="expense">Expense (Outgoing Payment / Subscription)</option>
+                        <option value="income">Income (Incoming Salary / Stipend / Client)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Title / Payee</label>
+                    <input type="text" name="title" id="editRecurringTitle" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Amount ({{ current_user.currency_symbol or '₹' }})</label>
+                    <input type="number" step="0.01" name="amount" id="editRecurringAmount" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select name="category_id" id="editRecurringCategory" class="form-select">
+                        {% for c in categories %}
+                            <option value="{{ c.id }}">{{ c.name }} ({{ c.type }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Frequency</label>
+                    <select name="frequency" id="editRecurringFrequency" class="form-select">
+                        <option value="monthly">Monthly</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="yearly">Yearly</option>
+                        <option value="daily">Daily</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Next Due Date</label>
+                    <input type="date" name="next_date" id="editRecurringNextDate" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Payment Method</label>
+                    <select name="payment_method" id="editRecurringPaymentMethod" class="form-select">
+                        <option value="Net Banking">Net Banking</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Credit Card">Credit Card</option>
+                        <option value="Debit Card">Debit Card</option>
+                        <option value="Auto-Debit">Auto-Debit</option>
+                        <option value="Cash">Cash</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description (Optional)</label>
+                    <input type="text" name="description" id="editRecurringDescription" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editRecurringModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Recurring Item</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openEditRecurringModal(id, title, amount, type, categoryId, frequency, nextDate, paymentMethod, description) {
+        const form = document.getElementById('editRecurringForm');
+        if (form) {
+            form.action = `/recurring/edit/${id}`;
+        }
+        document.getElementById('editRecurringTitle').value = title;
+        document.getElementById('editRecurringAmount').value = amount;
+        document.getElementById('editRecurringType').value = type;
+        document.getElementById('editRecurringCategory').value = categoryId;
+        document.getElementById('editRecurringFrequency').value = frequency;
+        document.getElementById('editRecurringNextDate').value = nextDate;
+        document.getElementById('editRecurringPaymentMethod').value = paymentMethod;
+        document.getElementById('editRecurringDescription').value = description;
+        openModal('editRecurringModal');
+    }
+</script>
+{% endblock %}

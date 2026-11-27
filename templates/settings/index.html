@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block page_title %}Settings & Profile Preferences{% endblock %}
+
+{% block content %}
+<div class="responsive-equal-grid">
+    <!-- Profile & Preferences Card -->
+    <div class="card">
+        <div class="card-header-clean">
+            <div>
+                <h3 class="card-title-clean">
+                    <i data-lucide="user" style="color: var(--secondary);"></i>
+                    Profile & Preferences
+                </h3>
+                <span class="card-subtitle-clean">Manage your account information and default currency</span>
+            </div>
+        </div>
+
+        <form action="{{ url_for('settings.update_profile') }}" method="POST">
+            <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" name="name" class="form-control" value="{{ user.name }}" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Email Address (Registered)</label>
+                <input type="email" class="form-control" value="{{ user.email }}" disabled style="background-color: var(--background);">
+                <small style="font-size: 0.74rem; color: var(--text-secondary);">Your email is used for login identification.</small>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Display Currency</label>
+                <select name="currency" class="form-select">
+                    <option value="INR" {% if user.currency == 'INR' %}selected{% endif %}>Indian Rupee (₹ - INR)</option>
+                    <option value="USD" {% if user.currency == 'USD' %}selected{% endif %}>US Dollar ($ - USD)</option>
+                    <option value="EUR" {% if user.currency == 'EUR' %}selected{% endif %}>Euro (€ - EUR)</option>
+                    <option value="GBP" {% if user.currency == 'GBP' %}selected{% endif %}>British Pound (£ - GBP)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Monthly Target Budget Cap ({{ user.currency_symbol or '₹' }})</label>
+                <input type="number" step="1000" name="monthly_budget_target" class="form-control" value="{{ user.monthly_budget_target or 50000 }}">
+                <small style="font-size: 0.74rem; color: var(--text-secondary);">Used to monitor overall monthly spending velocity.</small>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="margin-top: 10px;">
+                <i data-lucide="check" style="width: 15px; height: 15px;"></i>
+                <span>Save Profile Changes</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- Password & Security Card -->
+    <div class="card">
+        <div class="card-header-clean">
+            <div>
+                <h3 class="card-title-clean">
+                    <i data-lucide="shield" style="color: var(--secondary);"></i>
+                    Security & Password
+                </h3>
+                <span class="card-subtitle-clean">Update your account credentials safely</span>
+            </div>
+        </div>
+
+        <form action="{{ url_for('settings.change_password') }}" method="POST">
+            <div class="form-group">
+                <label class="form-label">Current Password</label>
+                <input type="password" name="current_password" class="form-control" placeholder="••••••••" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">New Password</label>
+                <input type="password" name="new_password" class="form-control" placeholder="Minimum 6 characters" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Confirm New Password</label>
+                <input type="password" name="confirm_password" class="form-control" placeholder="••••••••" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="margin-top: 10px;">
+                <i data-lucide="key" style="width: 15px; height: 15px;"></i>
+                <span>Update Password</span>
+            </button>
+        </form>
+
+        <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border);">
+            <div style="font-weight: 600; font-size: 0.92rem; color: #8c4747; margin-bottom: 6px;">Demo Portfolio Reset</div>
+            <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 12px;">
+                Reload the complete demo financial portfolio with rich realistic transactions, budgets, recurring bills, and savings goals.
+            </p>
+            <form action="{{ url_for('settings.reseed_demo') }}" method="POST" onsubmit="return confirm('Reset and reseed demo financial records?')">
+                <button type="submit" class="btn btn-outline btn-sm" style="color: var(--secondary); border-color: var(--secondary);">
+                    <i data-lucide="rotate-ccw" style="width: 14px; height: 14px;"></i>
+                    <span>Reload Realistic Sample Data</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
