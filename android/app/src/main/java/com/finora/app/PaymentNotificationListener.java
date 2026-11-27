@@ -30,7 +30,8 @@ public class PaymentNotificationListener extends NotificationListenerService {
 
     private static final String[] KNOWN_KEYWORDS = {
         "paid", "debited", "spent", "sent", "transfer", "transferred",
-        "txn", "transaction", "payment", "successful", "vpa", "upi"
+        "txn", "transaction", "payment", "successful", "vpa", "upi",
+        "received", "credited", "deposit", "deposited", "sent you", "added to", "cr to", "credit"
     };
 
     @Override
@@ -84,22 +85,6 @@ public class PaymentNotificationListener extends NotificationListenerService {
             return;
         }
 
-        // Extract amount
-        double amount = extractAmount(title + " " + text);
-        if (amount <= 0) {
-            Log.d(TAG, "No valid amount extracted from: " + fullContent);
-            return;
-        }
-
-        // Extract payee / merchant
-        String rawPayee = extractPayee(title + " " + text);
-        final String payee = (rawPayee != null && !rawPayee.trim().isEmpty())
-            ? rawPayee
-            : getAppName(sbn.getPackageName());
-
-        final String sourceApp = getAppName(sbn.getPackageName());
-        final double finalAmount = amount;
-
         // Check whether it is a received payment (Income) or made payment (Expense)
         boolean isCredit = fullContent.contains("received") ||
                            fullContent.contains("credited") ||
@@ -109,6 +94,22 @@ public class PaymentNotificationListener extends NotificationListenerService {
                            fullContent.contains("added to your");
 
         final String txType = isCredit ? "income" : "expense";
+
+        // Extract amount
+        double amount = extractAmount(title + " " + text);
+        if (amount <= 0) {
+            Log.d(TAG, "No valid amount extracted from: " + fullContent);
+            return;
+        }
+
+        // Extract payee / merchant
+        String rawPayee = extractPayee(title + " " + text, isCredit);
+        final String payee = (rawPayee != null && !rawPayee.trim().isEmpty())
+            ? rawPayee
+            : (isCredit ? "Income Transfer" : getAppName(sbn.getPackageName()));
+
+        final String sourceApp = getAppName(sbn.getPackageName());
+        final double finalAmount = amount;
 
         // Deduplication guard: ignore exact same amount & payee within 60 seconds
         String dedupKey = String.format("%s_%.2f_%s", txType, finalAmount, payee.toLowerCase());
@@ -132,8 +133,8 @@ public class PaymentNotificationListener extends NotificationListenerService {
     }
 
     private double extractAmount(String raw) {
-        // Pattern 1: Action keywords with amount (debited by 10.00, debited with 500, spent by 250, ₹ 350.00, Rs. 50, INR 1200)
-        Pattern p1 = Pattern.compile("(?:debited\\s+by|debited\\s+with|debited\\s+for|spent\\s+by|spent\\s+of|purchase\\s+of|rs\\.?|inr|₹)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+        // Pattern 1: Action keywords with amount (debited by 10.00, credited by 500, spent by 250, received 100, ₹ 350.00, Rs. 50, INR 1200)
+        Pattern p1 = Pattern.compile("(?:debited\\s+by|debited\\s+with|debited\\s+for|spent\\s+by|spent\\s+of|credited\\s+by|credited\\s+with|received|purchase\\s+of|rs\\.?|inr|₹)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
         Matcher m1 = p1.matcher(raw);
         if (m1.find()) {
             try {
@@ -150,8 +151,8 @@ public class PaymentNotificationListener extends NotificationListenerService {
             } catch (Exception ignored) {}
         }
 
-        // Pattern 3: Action keywords followed by numbers (paid 50 to, debited 1200)
-        Pattern p3 = Pattern.compile("(?:paid|debited|spent|sent|transfer of|payment of|trf)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+        // Pattern 3: Action keywords followed by numbers (paid 50 to, debited 1200, credited 500)
+        Pattern p3 = Pattern.compile("(?:paid|debited|spent|sent|credited|received|transfer of|payment of|trf)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
         Matcher m3 = p3.matcher(raw);
         if (m3.find()) {
             try {
@@ -162,8 +163,12 @@ public class PaymentNotificationListener extends NotificationListenerService {
         return 0;
     }
 
-    private String extractPayee(String raw) {
-        Pattern pattern = Pattern.compile("(?:trf\\s+to|to|at|for|vpa)\\s+([A-Za-z0-9\\s&'.-]{2,35}?)(?:\\s+(?:Refno|ref|on\\s+date|on|avl|balance|val|upi|\\.)|$)", Pattern.CASE_INSENSITIVE);
+    private String extractPayee(String raw, boolean isCredit) {
+        String regex = isCredit
+            ? "(?:from|by|received\\s+from|trf\\s+from)\\s+([A-Za-z0-9\\s&'.-]{2,35}?)(?:\\s+(?:Refno|ref|on\\s+date|on|avl|balance|val|upi|\\.)|$)"
+            : "(?:trf\\s+to|to|at|for|vpa)\\s+([A-Za-z0-9\\s&'.-]{2,35}?)(?:\\s+(?:Refno|ref|on\\s+date|on|avl|balance|val|upi|\\.)|$)";
+
+        Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(raw);
         if (matcher.find()) {
             String p = matcher.group(1).trim();
@@ -171,7 +176,17 @@ public class PaymentNotificationListener extends NotificationListenerService {
                 return p;
             }
         }
-        return "Merchant";
+
+        // Fallback for "Rahul sent you ₹500"
+        if (isCredit) {
+            Pattern sentYou = Pattern.compile("([A-Za-z0-9\\s&'.-]{2,25})\\s+sent you", Pattern.CASE_INSENSITIVE);
+            Matcher m = sentYou.matcher(raw);
+            if (m.find()) {
+                return m.group(1).trim();
+            }
+        }
+
+        return isCredit ? "Income Transfer" : "Merchant";
     }
 
     private String getAppName(String pkg) {
