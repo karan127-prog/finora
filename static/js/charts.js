@@ -1,34 +1,39 @@
 /* FINORA - Charts & Visualizations (Chart.js) */
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Set Chart.js global theme defaults
-    if (window.Chart) {
-        Chart.defaults.font.family = "'Manrope', 'Inter', sans-serif";
-        Chart.defaults.color = '#8799A8';
-        Chart.defaults.plugins.tooltip.backgroundColor = '#344454';
-        Chart.defaults.plugins.tooltip.titleColor = '#FFFFFF';
-        Chart.defaults.plugins.tooltip.bodyColor = '#E6EFF6';
-        Chart.defaults.plugins.tooltip.padding = 12;
-        Chart.defaults.plugins.tooltip.cornerRadius = 10;
-        Chart.defaults.plugins.tooltip.borderWidth = 1;
-        Chart.defaults.plugins.tooltip.borderColor = '#789BB8';
+const activeChartInstances = {};
+
+function safeDestroyChart(id) {
+    if (activeChartInstances[id]) {
+        try { activeChartInstances[id].destroy(); } catch (e) {}
+        delete activeChartInstances[id];
     }
+}
+
+window.initAllCharts = function() {
+    if (!window.Chart) return;
+
+    // Set Chart.js global theme defaults
+    Chart.defaults.font.family = "'Manrope', 'Inter', sans-serif";
+    Chart.defaults.color = '#8799A8';
+    Chart.defaults.plugins.tooltip.backgroundColor = '#344454';
+    Chart.defaults.plugins.tooltip.titleColor = '#FFFFFF';
+    Chart.defaults.plugins.tooltip.bodyColor = '#E6EFF6';
+    Chart.defaults.plugins.tooltip.padding = 12;
+    Chart.defaults.plugins.tooltip.cornerRadius = 10;
+    Chart.defaults.plugins.tooltip.borderWidth = 1;
+    Chart.defaults.plugins.tooltip.borderColor = '#789BB8';
 
     // 1. Dashboard Overview Bar Chart (Income vs Expense)
     const overviewCanvas = document.getElementById('overviewBarChart');
     if (overviewCanvas) {
-        let overviewChart = null;
-
         function loadOverviewChart(view = 'monthly') {
             fetch(`/api/chart-data?view=${view}`)
                 .then(r => r.json())
                 .then(data => {
                     const ctx = overviewCanvas.getContext('2d');
-                    if (overviewChart) {
-                        overviewChart.destroy();
-                    }
+                    safeDestroyChart('overviewBarChart');
 
-                    overviewChart = new Chart(ctx, {
+                    activeChartInstances['overviewBarChart'] = new Chart(ctx, {
                         type: 'bar',
                         data: {
                             labels: data.overview.labels,
@@ -94,16 +99,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const yearlyToggle = document.getElementById('chartViewYearly');
 
         if (monthlyToggle && yearlyToggle) {
-            monthlyToggle.addEventListener('click', () => {
+            monthlyToggle.onclick = () => {
                 monthlyToggle.classList.add('active');
                 yearlyToggle.classList.remove('active');
                 loadOverviewChart('monthly');
-            });
-            yearlyToggle.addEventListener('click', () => {
+            };
+            yearlyToggle.onclick = () => {
                 yearlyToggle.classList.add('active');
                 monthlyToggle.classList.remove('active');
                 loadOverviewChart('yearly');
-            });
+            };
         }
     }
 
@@ -131,7 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                new Chart(ctx, {
+                safeDestroyChart('expenseDoughnutChart');
+                activeChartInstances['expenseDoughnutChart'] = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
                         labels: labels,
@@ -180,7 +186,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const labels = window.finoraIncomeTrends.map(d => d.label);
         const amounts = window.finoraIncomeTrends.map(d => d.amount);
 
-        new Chart(ctx, {
+        safeDestroyChart('incomeTrendsBarChart');
+        activeChartInstances['incomeTrendsBarChart'] = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: labels,
@@ -223,7 +230,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const labels = window.finoraExpenseTrends.map(d => d.label);
         const amounts = window.finoraExpenseTrends.map(d => d.amount);
 
-        new Chart(ctx, {
+        safeDestroyChart('expenseTrendsBarChart');
+        activeChartInstances['expenseTrendsBarChart'] = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: labels,
@@ -268,7 +276,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const expense = window.finoraTrendData.map(d => d.expense);
         const savings = window.finoraTrendData.map(d => d.savings);
 
-        new Chart(ctx, {
+        safeDestroyChart('analyticsTrendChart');
+        activeChartInstances['analyticsTrendChart'] = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
@@ -340,7 +349,8 @@ document.addEventListener('DOMContentLoaded', () => {
             '#C5D2DC', '#8799A8', '#546E7A', '#7E909A', '#90A4AE'
         ];
 
-        new Chart(ctx, {
+        safeDestroyChart('analyticsCategoryDoughnut');
+        activeChartInstances['analyticsCategoryDoughnut'] = new Chart(ctx, {
             type: 'doughnut',
             data: {
                 labels: labels,
@@ -370,4 +380,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-});
+};
+
+document.addEventListener('DOMContentLoaded', window.initAllCharts);

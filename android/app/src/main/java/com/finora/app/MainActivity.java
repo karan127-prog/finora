@@ -16,7 +16,6 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.EditText;
-import android.widget.ProgressBar;
 import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -30,7 +29,6 @@ public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
     private SwipeRefreshLayout swipeRefresh;
-    private ProgressBar progressBar;
     private SharedPreferences prefs;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -44,15 +42,10 @@ public class MainActivity extends AppCompatActivity {
 
         swipeRefresh = new SwipeRefreshLayout(this);
         webView = new WebView(this);
-        progressBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-        progressBar.setMax(100);
 
-        android.widget.RelativeLayout.LayoutParams progressParams = new android.widget.RelativeLayout.LayoutParams(
-                android.widget.RelativeLayout.LayoutParams.MATCH_PARENT, 10
-        );
-        progressParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_TOP);
-        progressBar.setLayoutParams(progressParams);
-        progressBar.setVisibility(View.GONE);
+        // Native app look: Match app background and eliminate browser edge bounce
+        webView.setBackgroundColor(0xFFF3F7FA);
+        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
         swipeRefresh.addView(webView, new SwipeRefreshLayout.LayoutParams(
                 SwipeRefreshLayout.LayoutParams.MATCH_PARENT,
@@ -60,7 +53,6 @@ public class MainActivity extends AppCompatActivity {
         ));
 
         layout.addView(swipeRefresh);
-        layout.addView(progressBar);
         setContentView(layout);
 
         WebSettings settings = webView.getSettings();
@@ -73,6 +65,8 @@ public class MainActivity extends AppCompatActivity {
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setAllowFileAccess(true);
+        settings.setRenderPriority(WebSettings.RenderPriority.HIGH);
+        settings.setOffscreenPreRaster(true);
 
         // Enable persistent cookies and third-party cookies across app restarts
         CookieManager cookieManager = CookieManager.getInstance();
@@ -82,11 +76,7 @@ public class MainActivity extends AppCompatActivity {
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onProgressChanged(WebView view, int newProgress) {
-                if (newProgress < 100) {
-                    progressBar.setVisibility(View.VISIBLE);
-                    progressBar.setProgress(newProgress);
-                } else {
-                    progressBar.setVisibility(View.GONE);
+                if (newProgress >= 100) {
                     swipeRefresh.setRefreshing(false);
                 }
             }
