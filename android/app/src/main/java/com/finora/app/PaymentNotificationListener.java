@@ -92,15 +92,16 @@ public class PaymentNotificationListener extends NotificationListenerService {
         }
 
         // Extract payee / merchant
-        String payee = extractPayee(title + " " + text);
-        if (payee == null || payee.trim().isEmpty()) {
-            payee = getAppName(sbn.getPackageName());
-        }
+        String rawPayee = extractPayee(title + " " + text);
+        final String payee = (rawPayee != null && !rawPayee.trim().isEmpty())
+            ? rawPayee
+            : getAppName(sbn.getPackageName());
 
-        String sourceApp = getAppName(sbn.getPackageName());
+        final String sourceApp = getAppName(sbn.getPackageName());
+        final double finalAmount = amount;
 
         // Deduplication guard: ignore exact same amount & payee within 60 seconds
-        String dedupKey = String.format("%.2f_%s", amount, payee.toLowerCase());
+        String dedupKey = String.format("%.2f_%s", finalAmount, payee.toLowerCase());
         long now = System.currentTimeMillis();
         if (recentEvents.containsKey(dedupKey) && (now - recentEvents.get(dedupKey)) < 60000) {
             Log.d(TAG, "Duplicate notification ignored: " + dedupKey);
@@ -108,15 +109,15 @@ public class PaymentNotificationListener extends NotificationListenerService {
         }
         recentEvents.put(dedupKey, now);
 
-        Log.d(TAG, ">>> CAPTURED PAYMENT: ₹" + amount + " to " + payee + " via " + sourceApp);
+        Log.d(TAG, ">>> CAPTURED PAYMENT: ₹" + finalAmount + " to " + payee + " via " + sourceApp);
 
         // Auto-record to FINORA server immediately in background
         SharedPreferences prefs = getSharedPreferences("FinoraPrefs", Context.MODE_PRIVATE);
-        String serverUrl = prefs.getString("server_url", MainActivity.DEFAULT_URL);
+        final String serverUrl = prefs.getString("server_url", MainActivity.DEFAULT_URL);
 
         new Thread(() -> {
-            boolean recorded = postTransactionDirectly(serverUrl, amount, payee, sourceApp);
-            showExpenseNotification(amount, payee, sourceApp, recorded);
+            boolean recorded = postTransactionDirectly(serverUrl, finalAmount, payee, sourceApp);
+            showExpenseNotification(finalAmount, payee, sourceApp, recorded);
         }).start();
     }
 
