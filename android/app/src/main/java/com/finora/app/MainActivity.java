@@ -1,11 +1,16 @@
 package com.finora.app;
 
 import android.annotation.SuppressLint;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
+import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.View;
 import android.webkit.CookieManager;
@@ -103,6 +108,77 @@ public class MainActivity extends AppCompatActivity {
 
         String currentUrl = prefs.getString(KEY_SERVER_URL, DEFAULT_URL);
         webView.loadUrl(currentUrl);
+
+        // Check and prompt for Notification Listener & Post Notification access
+        checkNotificationPermissions();
+        handleQuickAddIntent(getIntent());
+    }
+
+    private void checkNotificationPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
+            }
+        }
+
+        if (!isNotificationListenerEnabled()) {
+            boolean askedBefore = prefs.getBoolean("asked_listener_permission", false);
+            if (!askedBefore) {
+                prefs.edit().putBoolean("asked_listener_permission", true).apply();
+                new AlertDialog.Builder(this)
+                    .setTitle("⚡ Auto Payment Tracking")
+                    .setMessage("FINORA can automatically detect payments from Google Pay, PhonePe, Paytm, and Bank SMS so you can log expenses with 1 tap.\n\nAllow Notification Access for FINORA in the next screen?")
+                    .setPositiveButton("Enable Now", (d, w) -> {
+                        startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
+                    })
+                    .setNegativeButton("Maybe Later", null)
+                    .show();
+            }
+        }
+    }
+
+    private boolean isNotificationListenerEnabled() {
+        String pkgName = getPackageName();
+        final String flat = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
+        if (flat != null) {
+            final String[] names = flat.split(":");
+            for (String name : names) {
+                ComponentName cn = ComponentName.unflattenFromString(name);
+                if (cn != null && TextUtils.equals(pkgName, cn.getPackageName())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleQuickAddIntent(intent);
+    }
+
+    private void handleQuickAddIntent(Intent intent) {
+        if (intent == null || !intent.hasExtra("quick_amount")) return;
+
+        double amount = intent.getDoubleExtra("quick_amount", 0);
+        String payee = intent.getStringExtra("quick_payee");
+
+        webView.postDelayed(() -> {
+            String js = String.format(
+                "if (window.openQuickAddModal) { " +
+                "  window.openQuickAddModal('expense'); " +
+                "  const t = document.querySelector('input[name=\"title\"]'); " +
+                "  const a = document.querySelector('input[name=\"amount\"]'); " +
+                "  if (t) t.value = '%s'; " +
+                "  if (a) a.value = '%.2f'; " +
+                "}",
+                (payee != null ? payee.replace("'", "\\'") : "UPI Payment"),
+                amount
+            );
+            webView.evaluateJavascript(js, null);
+        }, 1200);
     }
 
     private void showChangeUrlDialog() {

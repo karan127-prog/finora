@@ -102,3 +102,104 @@ def chart_data():
             'data': cat_values
         }
     })
+
+@api_bp.route('/api/transactions/quick-add-detected', methods=['POST'])
+@login_required
+def quick_add_detected():
+    """
+    Endpoint called directly by Android PaymentNotificationListener or 1-tap notification action
+    when a payment notification from GPay, PhonePe, Paytm, or bank SMS is captured.
+    """
+    data = request.get_json(silent=True) or request.form
+    try:
+        amount = float(data.get('amount', 0))
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'error': 'Invalid amount'}), 400
+
+    if amount <= 0:
+        return jsonify({'success': False, 'error': 'Amount must be greater than zero'}), 400
+
+    payee = str(data.get('payee', 'UPI Payment')).strip()
+    payment_method = str(data.get('payment_method', 'UPI')).strip()
+    source_app = str(data.get('source_app', 'Payment App')).strip()
+
+    # Smart Auto-Categorization based on payee keyword
+    payee_lower = payee.lower()
+    suggested_category_name = "Miscellaneous"
+
+    food_keywords = ['swiggy', 'zomato', 'restaurant', 'cafe', 'mcdonald', 'kfc', 'dominos', 'burger', 'starbucks', 'tea', 'dhaba', 'pizza', 'food']
+    transport_keywords = ['uber', 'ola', 'rapido', 'metro', 'fuel', 'petrol', 'diesel', 'indian oil', 'hp petrol', 'bharat petroleum', 'fastag', 'toll', 'parking']
+    groceries_keywords = ['blinkit', 'zepto', 'instamart', 'supermarket', 'mart', 'grocer', 'bigbasket', 'dmart', 'kirana', 'milk', 'vegetable']
+    shopping_keywords = ['amazon', 'flipkart', 'myntra', 'nykaa', 'zara', 'h&m', 'meesho', 'ajio', 'croma', 'reliance']
+    utilities_keywords = ['airtel', 'jio', 'vi', 'vodafone', 'electricity', 'bescom', 'tata play', 'dish', 'broadband', 'wifi', 'bill']
+    entertainment_keywords = ['netflix', 'spotify', 'hotstar', 'prime', 'pvr', 'inox', 'movie', 'bookmyshow', 'youtube', 'gaming']
+
+    if any(k in payee_lower for k in food_keywords):
+        suggested_category_name = "Food & Dining"
+    elif any(k in payee_lower for k in transport_keywords):
+        suggested_category_name = "Transportation"
+    elif any(k in payee_lower for k in groceries_keywords):
+        suggested_category_name = "Groceries"
+    elif any(k in payee_lower for k in shopping_keywords):
+        suggested_category_name = "Shopping"
+    elif any(k in payee_lower for k in utilities_keywords):
+        suggested_category_name = "Utilities"
+    elif any(k in payee_lower for k in entertainment_keywords):
+        suggested_category_name = "Entertainment"
+
+    # Find matching category for current_user or default
+    category = Category.query.filter(
+        (Category.user_id == current_user.id) | (Category.user_id.is_(None)),
+        Category.type == 'expense',
+        Category.name.ilike(f"%{suggested_category_name}%")
+    ).first()
+
+    if not category:
+        category = Category.query.filter(
+            (Category.user_id == current_user.id) | (Category.user_id.is_(None)),
+            Category.type == 'expense'
+        ).first()
+
+    category_id = category.id if category else None
+
+    # Check for duplicate transaction within today (same amount & payee)
+    recent_dup = Transaction.query.filter(
+        Transaction.user_id == current_user.id,
+        Transaction.amount == amount,
+        Transaction.title == payee,
+        Transaction.date == date.today()
+    ).first()
+
+    if recent_dup:
+        return jsonify({'success': True, 'message': 'Payment already recorded', 'transaction_id': recent_dup.id})
+
+    # Create new Transaction
+    tx = Transaction(
+        user_id=current_user.id,
+        title=payee,
+        amount=amount,
+        type='expense',
+        category_id=category_id,
+        date=date.today(),
+        payment_method=payment_method,
+        description=f"Auto-captured via {source_app} payment notification"
+    )
+    db.session.add(tx)
+
+    # In-app notification confirming capture
+    capture_notif = Notification(
+        user_id=current_user.id,
+        title=f"Captured: ₹{amount:,.2f} at {payee}",
+        message=f"Automatically recorded from {source_app} to {category.name if category else 'Expenses'}.",
+        type='success',
+        link='/transactions'
+    )
+    db.session.add(capture_notif)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': f"Recorded ₹{amount:,.2f} to {payee}",
+        'transaction_id': tx.id,
+        'category': category.name if category else 'Expense'
+    })
