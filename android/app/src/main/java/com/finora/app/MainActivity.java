@@ -113,6 +113,19 @@ public class MainActivity extends AppCompatActivity {
         checkNotificationPermissions();
         checkSmsPermissions();
         handleQuickAddIntent(getIntent());
+
+        // Automatically sync recent bank SMS on launch
+        if (checkSelfPermission(android.Manifest.permission.READ_SMS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            BankSmsReceiver.syncRecentBankSms(this);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 102 && grantResults.length > 0 && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            BankSmsReceiver.syncRecentBankSms(this);
+        }
     }
 
     private void checkSmsPermissions() {

@@ -122,8 +122,8 @@ public class PaymentNotificationListener extends NotificationListenerService {
     }
 
     private double extractAmount(String raw) {
-        // Pattern 1: Symbol before amount (₹ 350.00, Rs. 50, INR 1200)
-        Pattern p1 = Pattern.compile("(?:rs\\.?|inr|₹)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+        // Pattern 1: Action keywords with amount (debited by 10.00, debited with 500, spent by 250, ₹ 350.00, Rs. 50, INR 1200)
+        Pattern p1 = Pattern.compile("(?:debited\\s+by|debited\\s+with|debited\\s+for|spent\\s+by|spent\\s+of|purchase\\s+of|rs\\.?|inr|₹)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
         Matcher m1 = p1.matcher(raw);
         if (m1.find()) {
             try {
@@ -141,7 +141,7 @@ public class PaymentNotificationListener extends NotificationListenerService {
         }
 
         // Pattern 3: Action keywords followed by numbers (paid 50 to, debited 1200)
-        Pattern p3 = Pattern.compile("(?:paid|debited|spent|sent|transfer of|payment of)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+        Pattern p3 = Pattern.compile("(?:paid|debited|spent|sent|transfer of|payment of|trf)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
         Matcher m3 = p3.matcher(raw);
         if (m3.find()) {
             try {
@@ -153,7 +153,7 @@ public class PaymentNotificationListener extends NotificationListenerService {
     }
 
     private String extractPayee(String raw) {
-        Pattern pattern = Pattern.compile("(?:to|at|for|trf to)\\s+([A-Za-z0-9\\s&'.]{2,30}?)(?:\\s+(?:successful|done|via|using|on|ref|upi|a/c|balance|vpa|\\.)|$)", Pattern.CASE_INSENSITIVE);
+        Pattern pattern = Pattern.compile("(?:trf\\s+to|to|at|for|vpa)\\s+([A-Za-z0-9\\s&'.-]{2,35}?)(?:\\s+(?:Refno|ref|on\\s+date|on|avl|balance|val|upi|\\.)|$)", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(raw);
         if (matcher.find()) {
             String p = matcher.group(1).trim();

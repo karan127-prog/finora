@@ -7,6 +7,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.telephony.SmsMessage;
@@ -65,30 +67,56 @@ public class BankSmsReceiver extends BroadcastReceiver {
             }
         }
 
-        String rawSms = fullBody.toString();
+        processSms(context, sender, fullBody.toString(), true);
+    }
+
+    public static void syncRecentBankSms(Context context) {
+        new Thread(() -> {
+            try {
+                Uri uri = Uri.parse("content://sms/inbox");
+                Cursor cursor = context.getContentResolver().query(
+                    uri,
+                    new String[]{"address", "body", "date"},
+                    null,
+                    null,
+                    "date DESC LIMIT 25"
+                );
+                if (cursor != null) {
+                    while (cursor.moveToNext()) {
+                        String address = cursor.getString(0);
+                        String body = cursor.getString(1);
+                        processSms(context, address, body, false);
+                    }
+                    cursor.close();
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error syncing past SMS inbox: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    public static void processSms(Context context, String sender, String rawSms, boolean notifyUser) {
+        if (rawSms == null || rawSms.trim().isEmpty()) return;
+
         String lowerSms = rawSms.toLowerCase();
 
         // 1. STRICT ZERO-OTP FIREWALL: Never touch OTPs or sensitive codes!
         for (String blocked : BLOCKED_SECURITY_WORDS) {
             if (lowerSms.contains(blocked)) {
-                Log.d(TAG, "Security rule: OTP/Verification SMS discarded.");
                 return;
             }
         }
 
-        // 2. Only process DEBIT / EXPENSE bank messages
+        // 2. Debit keywords (SBI, HDFC, ICICI, Axis, Paytm, etc.)
         boolean isDebit = lowerSms.contains("debited") ||
                           lowerSms.contains("spent") ||
                           lowerSms.contains("transferred") ||
                           lowerSms.contains("paid") ||
                           lowerSms.contains("withdrawn") ||
-                          lowerSms.contains("purchase of");
+                          lowerSms.contains("purchase of") ||
+                          lowerSms.contains("trf to");
 
-        boolean hasCurrency = lowerSms.contains("rs") ||
-                              lowerSms.contains("inr") ||
-                              lowerSms.contains("₹");
-
-        if (!isDebit || !hasCurrency) {
+        if (!isDebit) {
             return;
         }
 
@@ -104,18 +132,17 @@ public class BankSmsReceiver extends BroadcastReceiver {
 
         String bankName = extractBankName(sender);
 
-        // Deduplication guard: ignore exact duplicate within 60 seconds
+        // Deduplication guard: ignore exact duplicate within 30 seconds
         String dedupKey = String.format("%.2f_%s", amount, payee.toLowerCase());
         long now = System.currentTimeMillis();
-        if (recentSmsEvents.containsKey(dedupKey) && (now - recentSmsEvents.get(dedupKey)) < 60000) {
-            Log.d(TAG, "Duplicate bank SMS ignored: " + dedupKey);
+        if (recentSmsEvents.containsKey(dedupKey) && (now - recentSmsEvents.get(dedupKey)) < 30000) {
             return;
         }
         recentSmsEvents.put(dedupKey, now);
 
-        Log.d(TAG, ">>> CAPTURED BANK DEBIT SMS: ₹" + amount + " at " + payee + " (" + bankName + ")");
+        Log.d(TAG, ">>> MATCHED BANK DEBIT: ₹" + amount + " at " + payee + " (" + bankName + ")");
 
-        // 5. Auto-record to FINORA server in background
+        // 5. Post to FINORA server
         SharedPreferences prefs = context.getSharedPreferences("FinoraPrefs", Context.MODE_PRIVATE);
         final String serverUrl = prefs.getString("server_url", MainActivity.DEFAULT_URL);
         final double finalAmount = amount;
@@ -124,12 +151,15 @@ public class BankSmsReceiver extends BroadcastReceiver {
 
         new Thread(() -> {
             boolean recorded = postTransactionDirectly(serverUrl, finalAmount, finalPayee, finalBank);
-            showBankSmsNotification(context, finalAmount, finalPayee, finalBank, recorded);
+            if (notifyUser) {
+                showBankSmsNotification(context, finalAmount, finalPayee, finalBank, recorded);
+            }
         }).start();
     }
 
-    private double extractAmount(String raw) {
-        Pattern p1 = Pattern.compile("(?:rs\\.?|inr|₹)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+    private static double extractAmount(String raw) {
+        // Pattern 1: Action keywords with amount (debited by 10.00, debited with 500, spent by 250)
+        Pattern p1 = Pattern.compile("(?:debited\\s+by|debited\\s+with|debited\\s+for|spent\\s+by|spent\\s+of|purchase\\s+of|rs\\.?|inr|₹)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
         Matcher m1 = p1.matcher(raw);
         if (m1.find()) {
             try {
@@ -137,6 +167,7 @@ public class BankSmsReceiver extends BroadcastReceiver {
             } catch (Exception ignored) {}
         }
 
+        // Pattern 2: Amount followed by currency symbol (500.00 Rs, 10 ₹)
         Pattern p2 = Pattern.compile("([\\d,]+(?:\\.\\d{1,2})?)\\s*(?:rs\\.?|inr|₹)", Pattern.CASE_INSENSITIVE);
         Matcher m2 = p2.matcher(raw);
         if (m2.find()) {
@@ -144,11 +175,22 @@ public class BankSmsReceiver extends BroadcastReceiver {
                 return Double.parseDouble(m2.group(1).replace(",", ""));
             } catch (Exception ignored) {}
         }
+
+        // Pattern 3: General fallback
+        Pattern p3 = Pattern.compile("(?:paid|debited|spent|sent|trf)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+        Matcher m3 = p3.matcher(raw);
+        if (m3.find()) {
+            try {
+                return Double.parseDouble(m3.group(1).replace(",", ""));
+            } catch (Exception ignored) {}
+        }
+
         return 0;
     }
 
-    private String extractPayee(String raw) {
-        Pattern pattern = Pattern.compile("(?:to|at|for|trf to|vpa)\\s+([A-Za-z0-9\\s&'.]{2,30}?)(?:\\s+(?:on|ref|avl|balance|val|upi|\\.)|$)", Pattern.CASE_INSENSITIVE);
+    private static String extractPayee(String raw) {
+        // Pattern for SBI, HDFC, ICICI UPI format: trf to AGGARWAL TRADERS Refno ...
+        Pattern pattern = Pattern.compile("(?:trf\\s+to|to|at|for|vpa)\\s+([A-Za-z0-9\\s&'.-]{2,35}?)(?:\\s+(?:Refno|ref|on\\s+date|avl|balance|val|upi|\\.)|$)", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(raw);
         if (matcher.find()) {
             String p = matcher.group(1).trim();
@@ -159,11 +201,11 @@ public class BankSmsReceiver extends BroadcastReceiver {
         return "Bank Transaction";
     }
 
-    private String extractBankName(String sender) {
+    private static String extractBankName(String sender) {
         if (sender == null) return "Bank SMS";
         String s = sender.toUpperCase();
+        if (s.contains("SBI")) return "State Bank of India";
         if (s.contains("HDFC")) return "HDFC Bank";
-        if (s.contains("SBI")) return "SBI Bank";
         if (s.contains("ICICI")) return "ICICI Bank";
         if (s.contains("AXIS")) return "Axis Bank";
         if (s.contains("KOTAK")) return "Kotak Bank";
@@ -175,7 +217,7 @@ public class BankSmsReceiver extends BroadcastReceiver {
         return "Bank SMS";
     }
 
-    private boolean postTransactionDirectly(String baseUrl, double amount, String payee, String bankName) {
+    private static boolean postTransactionDirectly(String baseUrl, double amount, String payee, String bankName) {
         try {
             if (baseUrl.endsWith("/")) {
                 baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
@@ -195,7 +237,7 @@ public class BankSmsReceiver extends BroadcastReceiver {
             }
 
             String jsonPayload = String.format(
-                "{\"amount\": %.2f, \"payee\": \"%s\", \"source_app\": \"%s\", \"payment_method\": \"Bank Debit\"}",
+                "{\"amount\": %.2f, \"payee\": \"%s\", \"source_app\": \"%s\", \"payment_method\": \"Bank UPI\"}",
                 amount,
                 (payee != null ? payee.replace("\"", "\\\"") : "Bank Debit"),
                 bankName
@@ -207,6 +249,7 @@ public class BankSmsReceiver extends BroadcastReceiver {
             }
 
             int code = conn.getResponseCode();
+            Log.d(TAG, "postTransactionDirectly code: " + code);
             return code >= 200 && code < 300;
         } catch (Exception e) {
             Log.e(TAG, "Failed to auto-post bank SMS transaction: " + e.getMessage());
@@ -214,7 +257,7 @@ public class BankSmsReceiver extends BroadcastReceiver {
         }
     }
 
-    private void showBankSmsNotification(Context context, double amount, String payee, String bankName, boolean autoRecorded) {
+    private static void showBankSmsNotification(Context context, double amount, String payee, String bankName, boolean autoRecorded) {
         createNotificationChannel(context);
 
         int notifId = (int) (System.currentTimeMillis() % 100000);
@@ -250,7 +293,7 @@ public class BankSmsReceiver extends BroadcastReceiver {
         }
     }
 
-    private void createNotificationChannel(Context context) {
+    private static void createNotificationChannel(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
