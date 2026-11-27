@@ -1,7 +1,7 @@
 from datetime import date
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
-from models import db, Notification, Transaction, Category
+from models import db, Notification, Transaction, Category, User
 from utils import calculate_dashboard_metrics, sync_smart_notifications
 
 api_bp = Blueprint('api', __name__)
@@ -216,8 +216,7 @@ def quick_add_detected():
         user_id=target_user.id,
         title=f"{action_label}: {prefix}₹{amount:,.2f} ({payee})",
         message=f"Automatically recorded from {source_app} to {category.name if category else tx_type.capitalize()}.",
-        type='success',
-        link='/transactions'
+        type='success'
     )
     db.session.add(capture_notif)
     db.session.commit()

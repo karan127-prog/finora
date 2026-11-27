@@ -285,7 +285,7 @@ public class BankSmsReceiver extends BroadcastReceiver {
             PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
         );
 
-        String isInc = "income".equals(txType);
+        boolean isInc = "income".equals(txType);
         String prefix = isInc ? "+" : "-";
         String verb = isInc ? "Received" : "Debit Saved";
 
