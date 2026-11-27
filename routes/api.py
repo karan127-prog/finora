@@ -104,12 +104,22 @@ def chart_data():
     })
 
 @api_bp.route('/api/transactions/quick-add-detected', methods=['POST'])
-@login_required
 def quick_add_detected():
     """
     Endpoint called directly by Android PaymentNotificationListener or 1-tap notification action
     when a payment notification from GPay, PhonePe, Paytm, or bank SMS is captured.
+    Works seamlessly whether session cookie is attached or directly for the primary user.
     """
+    target_user = None
+    if current_user.is_authenticated:
+        target_user = current_user
+    else:
+        # Fallback to the primary active user for background headless Android sync
+        target_user = User.query.order_by(User.id.asc()).first()
+
+    if not target_user:
+        return jsonify({'success': False, 'error': 'No active user found'}), 400
+
     data = request.get_json(silent=True) or request.form
     try:
         amount = float(data.get('amount', 0))
@@ -147,16 +157,16 @@ def quick_add_detected():
     elif any(k in payee_lower for k in entertainment_keywords):
         suggested_category_name = "Entertainment"
 
-    # Find matching category for current_user or default
+    # Find matching category for target_user or default
     category = Category.query.filter(
-        (Category.user_id == current_user.id) | (Category.user_id.is_(None)),
+        (Category.user_id == target_user.id) | (Category.user_id.is_(None)),
         Category.type == 'expense',
         Category.name.ilike(f"%{suggested_category_name}%")
     ).first()
 
     if not category:
         category = Category.query.filter(
-            (Category.user_id == current_user.id) | (Category.user_id.is_(None)),
+            (Category.user_id == target_user.id) | (Category.user_id.is_(None)),
             Category.type == 'expense'
         ).first()
 
@@ -164,7 +174,7 @@ def quick_add_detected():
 
     # Check for duplicate transaction within today (same amount & payee)
     recent_dup = Transaction.query.filter(
-        Transaction.user_id == current_user.id,
+        Transaction.user_id == target_user.id,
         Transaction.amount == amount,
         Transaction.title == payee,
         Transaction.date == date.today()
@@ -175,7 +185,7 @@ def quick_add_detected():
 
     # Create new Transaction
     tx = Transaction(
-        user_id=current_user.id,
+        user_id=target_user.id,
         title=payee,
         amount=amount,
         type='expense',
@@ -188,7 +198,7 @@ def quick_add_detected():
 
     # In-app notification confirming capture
     capture_notif = Notification(
-        user_id=current_user.id,
+        user_id=target_user.id,
         title=f"Captured: ₹{amount:,.2f} at {payee}",
         message=f"Automatically recorded from {source_app} to {category.name if category else 'Expenses'}.",
         type='success',

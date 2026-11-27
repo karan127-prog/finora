@@ -5,11 +5,18 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
+import android.util.Log;
+import android.webkit.CookieManager;
 import androidx.core.app.NotificationCompat;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -17,33 +24,27 @@ import java.util.regex.Pattern;
 
 public class PaymentNotificationListener extends NotificationListenerService {
 
+    private static final String TAG = "FINORA_TRACKER";
     public static final String CHANNEL_ID = "finora_expense_detect";
     private static final Map<String, Long> recentEvents = new HashMap<>();
 
-    // Common payment packages in India
-    private static final String[] PAYMENT_PACKAGES = {
-        "com.google.android.apps.nbu.paisa.user", // Google Pay
-        "com.phonepe.app",                       // PhonePe
-        "net.one97.paytm",                       // Paytm
-        "com.dreamplug.androidapp",              // CRED
-        "in.org.npci.upiapp",                    // BHIM
-        "in.amazon.mShop.android.shopping",      // Amazon Pay
-        "com.google.android.apps.messaging",     // Google Messages (Bank SMS)
-        "com.samsung.android.messaging",        // Samsung Messages
-        "com.android.mms"                        // Default SMS
+    private static final String[] KNOWN_KEYWORDS = {
+        "paid", "debited", "spent", "sent", "transfer", "transferred",
+        "txn", "transaction", "payment", "successful", "vpa", "upi"
     };
 
     @Override
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
+        Log.d(TAG, "FINORA PaymentNotificationListener service created and active!");
     }
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
         if (sbn == null || sbn.getPackageName() == null) return;
 
-        // Skip FINORA's own notifications
+        // Ignore our own notifications
         if (sbn.getPackageName().equals(getPackageName())) return;
 
         Bundle extras = sbn.getNotification().extras;
@@ -55,24 +56,25 @@ public class PaymentNotificationListener extends NotificationListenerService {
 
         String text = (bigTextSeq != null) ? bigTextSeq.toString() : (textSeq != null ? textSeq.toString() : "");
         String fullContent = (title + " " + text).toLowerCase();
+        String pkg = sbn.getPackageName().toLowerCase();
 
-        // Check if package is a payment app
-        boolean isPaymentApp = false;
-        for (String pkg : PAYMENT_PACKAGES) {
-            if (sbn.getPackageName().contains(pkg)) {
-                isPaymentApp = true;
+        Log.d(TAG, "Notification received from [" + pkg + "]: Title=" + title + " | Text=" + text);
+
+        // Check if package is a payment, banking, or SMS app
+        boolean isPaymentApp = pkg.contains("paisa") || pkg.contains("nbu") ||
+                              pkg.contains("phonepe") || pkg.contains("paytm") ||
+                              pkg.contains("dreamplug") || pkg.contains("cred") ||
+                              pkg.contains("amazon") || pkg.contains("bhim") ||
+                              pkg.contains("messaging") || pkg.contains("mms") ||
+                              pkg.contains("bank") || pkg.contains("upi");
+
+        boolean hasPaymentKeywords = false;
+        for (String kw : KNOWN_KEYWORDS) {
+            if (fullContent.contains(kw)) {
+                hasPaymentKeywords = true;
                 break;
             }
         }
-
-        // Keywords check
-        boolean hasPaymentKeywords = fullContent.contains("paid") ||
-                                     fullContent.contains("debited") ||
-                                     fullContent.contains("spent") ||
-                                     fullContent.contains("sent") ||
-                                     fullContent.contains("txn of") ||
-                                     fullContent.contains("payment of") ||
-                                     fullContent.contains("transferred");
 
         boolean hasCurrency = fullContent.contains("rs") ||
                               fullContent.contains("inr") ||
@@ -84,7 +86,10 @@ public class PaymentNotificationListener extends NotificationListenerService {
 
         // Extract amount
         double amount = extractAmount(title + " " + text);
-        if (amount <= 0) return;
+        if (amount <= 0) {
+            Log.d(TAG, "No valid amount extracted from: " + fullContent);
+            return;
+        }
 
         // Extract payee / merchant
         String payee = extractPayee(title + " " + text);
@@ -92,27 +97,57 @@ public class PaymentNotificationListener extends NotificationListenerService {
             payee = getAppName(sbn.getPackageName());
         }
 
-        // Prevent duplicate alerts within 60 seconds
+        String sourceApp = getAppName(sbn.getPackageName());
+
+        // Deduplication guard: ignore exact same amount & payee within 60 seconds
         String dedupKey = String.format("%.2f_%s", amount, payee.toLowerCase());
         long now = System.currentTimeMillis();
         if (recentEvents.containsKey(dedupKey) && (now - recentEvents.get(dedupKey)) < 60000) {
+            Log.d(TAG, "Duplicate notification ignored: " + dedupKey);
             return;
         }
         recentEvents.put(dedupKey, now);
 
-        // Show FINORA 1-Tap expense prompt
-        showExpenseNotification(amount, payee, getAppName(sbn.getPackageName()));
+        Log.d(TAG, ">>> CAPTURED PAYMENT: ₹" + amount + " to " + payee + " via " + sourceApp);
+
+        // Auto-record to FINORA server immediately in background
+        SharedPreferences prefs = getSharedPreferences("FinoraPrefs", Context.MODE_PRIVATE);
+        String serverUrl = prefs.getString("server_url", MainActivity.DEFAULT_URL);
+
+        new Thread(() -> {
+            boolean recorded = postTransactionDirectly(serverUrl, amount, payee, sourceApp);
+            showExpenseNotification(amount, payee, sourceApp, recorded);
+        }).start();
     }
 
     private double extractAmount(String raw) {
-        Pattern pattern = Pattern.compile("(?:rs\\.?|inr|₹)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(raw);
-        if (matcher.find()) {
+        // Pattern 1: Symbol before amount (₹ 350.00, Rs. 50, INR 1200)
+        Pattern p1 = Pattern.compile("(?:rs\\.?|inr|₹)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+        Matcher m1 = p1.matcher(raw);
+        if (m1.find()) {
             try {
-                String clean = matcher.group(1).replace(",", "");
-                return Double.parseDouble(clean);
+                return Double.parseDouble(m1.group(1).replace(",", ""));
             } catch (Exception ignored) {}
         }
+
+        // Pattern 2: Amount before symbol (350.00 ₹, 50 Rs)
+        Pattern p2 = Pattern.compile("([\\d,]+(?:\\.\\d{1,2})?)\\s*(?:rs\\.?|inr|₹)", Pattern.CASE_INSENSITIVE);
+        Matcher m2 = p2.matcher(raw);
+        if (m2.find()) {
+            try {
+                return Double.parseDouble(m2.group(1).replace(",", ""));
+            } catch (Exception ignored) {}
+        }
+
+        // Pattern 3: Action keywords followed by numbers (paid 50 to, debited 1200)
+        Pattern p3 = Pattern.compile("(?:paid|debited|spent|sent|transfer of|payment of)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+        Matcher m3 = p3.matcher(raw);
+        if (m3.find()) {
+            try {
+                return Double.parseDouble(m3.group(1).replace(",", ""));
+            } catch (Exception ignored) {}
+        }
+
         return 0;
     }
 
@@ -132,49 +167,83 @@ public class PaymentNotificationListener extends NotificationListenerService {
         if (pkg.contains("paisa") || pkg.contains("nbu")) return "Google Pay";
         if (pkg.contains("phonepe")) return "PhonePe";
         if (pkg.contains("paytm")) return "Paytm";
-        if (pkg.contains("dreamplug")) return "CRED";
+        if (pkg.contains("dreamplug") || pkg.contains("cred")) return "CRED";
         if (pkg.contains("amazon")) return "Amazon Pay";
+        if (pkg.contains("bhim")) return "BHIM UPI";
         if (pkg.contains("messaging") || pkg.contains("mms")) return "Bank SMS";
         return "UPI";
     }
 
-    private void showExpenseNotification(double amount, String payee, String sourceApp) {
+    private boolean postTransactionDirectly(String baseUrl, double amount, String payee, String sourceApp) {
+        try {
+            if (baseUrl.endsWith("/")) {
+                baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+            }
+            URL url = new URL(baseUrl + "/api/transactions/quick-add-detected");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json; utf-8");
+            conn.setRequestProperty("Accept", "application/json");
+            conn.setConnectTimeout(8000);
+            conn.setReadTimeout(8000);
+            conn.setDoOutput(true);
+
+            String cookie = CookieManager.getInstance().getCookie(baseUrl);
+            if (cookie != null && !cookie.isEmpty()) {
+                conn.setRequestProperty("Cookie", cookie);
+            }
+
+            String jsonPayload = String.format(
+                "{\"amount\": %.2f, \"payee\": \"%s\", \"source_app\": \"%s\", \"payment_method\": \"UPI\"}",
+                amount,
+                (payee != null ? payee.replace("\"", "\\\"") : "UPI Payment"),
+                (sourceApp != null ? sourceApp.replace("\"", "\\\"") : "Payment App")
+            );
+
+            try (OutputStream os = conn.getOutputStream()) {
+                byte[] input = jsonPayload.getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
+            }
+
+            int code = conn.getResponseCode();
+            Log.d(TAG, "postTransactionDirectly response code: " + code);
+            return code >= 200 && code < 300;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to auto-post transaction to server: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private void showExpenseNotification(double amount, String payee, String sourceApp, boolean autoRecorded) {
         createNotificationChannel();
 
         int notifId = (int) (System.currentTimeMillis() % 100000);
 
-        // Action 1: Instant Quick Add without opening app
-        Intent addIntent = new Intent(this, PaymentActionReceiver.class);
-        addIntent.setAction(PaymentActionReceiver.ACTION_ADD);
-        addIntent.putExtra("notif_id", notifId);
-        addIntent.putExtra("amount", amount);
-        addIntent.putExtra("payee", payee);
-        addIntent.putExtra("source_app", sourceApp);
-
-        PendingIntent addPendingIntent = PendingIntent.getBroadcast(
-            this, notifId, addIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
-        );
-
-        // Action 2: Open FINORA App
         Intent openIntent = new Intent(this, MainActivity.class);
         openIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         openIntent.putExtra("quick_amount", amount);
         openIntent.putExtra("quick_payee", payee);
 
         PendingIntent openPendingIntent = PendingIntent.getActivity(
-            this, notifId + 1, openIntent,
+            this, notifId, openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
         );
 
+        String titleText = autoRecorded
+            ? "✅ FINORA: ₹" + String.format("%.2f", amount) + " Auto-Recorded"
+            : "🔔 FINORA: ₹" + String.format("%.2f", amount) + " Payment Detected";
+
+        String descText = autoRecorded
+            ? "Saved for " + payee + " (" + sourceApp + "). Tap to open."
+            : "Paid to " + payee + " (" + sourceApp + "). Tap to record into FINORA.";
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("🔔 FINORA: ₹" + String.format("%.2f", amount) + " Payment Detected")
-            .setContentText("Paid to " + payee + " (" + sourceApp + "). Tap to record into FINORA.")
+            .setContentTitle(titleText)
+            .setContentText(descText)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(openPendingIntent)
-            .addAction(android.R.drawable.ic_input_add, "⚡ Add to Ledger", addPendingIntent)
             .addAction(android.R.drawable.ic_menu_view, "Open FINORA", openPendingIntent);
 
         NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
