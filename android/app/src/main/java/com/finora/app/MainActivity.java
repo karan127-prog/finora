@@ -111,7 +111,19 @@ public class MainActivity extends AppCompatActivity {
 
         // Check and prompt for Notification Listener & Post Notification access
         checkNotificationPermissions();
+        checkSmsPermissions();
         handleQuickAddIntent(getIntent());
+    }
+
+    private void checkSmsPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(android.Manifest.permission.RECEIVE_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{
+                    android.Manifest.permission.RECEIVE_SMS,
+                    android.Manifest.permission.READ_SMS
+                }, 102);
+            }
+        }
     }
 
     private void checkNotificationPermissions() {
