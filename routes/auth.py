@@ -1,6 +1,6 @@
 import re
 from urllib.parse import urlparse, urljoin
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, session
 from flask_login import login_user, logout_user, login_required, current_user
 from models import db, User
 from utils import seed_default_categories, seed_demo_user
@@ -27,13 +27,14 @@ def login():
         # Quick Demo Account login
         if action == 'demo_login':
             demo_user = seed_demo_user()
+            session.permanent = True
             login_user(demo_user, remember=True)
             flash('Logged in as Demo User with realistic portfolio data.', 'success')
             return redirect(url_for('dashboard.index'))
 
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
-        remember = bool(request.form.get('remember'))
+        remember = bool(request.form.get('remember', True))
 
         if not email or not password:
             flash('Please provide both email address and password.', 'warning')
@@ -41,7 +42,8 @@ def login():
 
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
-            login_user(user, remember=remember)
+            session.permanent = True
+            login_user(user, remember=True)
             flash(f'Welcome back, {user.name}!', 'success')
             next_page = request.args.get('next')
             if next_page and is_safe_url(next_page):
@@ -99,7 +101,8 @@ def register():
         # Seed initial categories for new user
         seed_default_categories(new_user.id)
 
-        login_user(new_user)
+        session.permanent = True
+        login_user(new_user, remember=True)
         flash('Account successfully created! Welcome to FINORA.', 'success')
         return redirect(url_for('dashboard.index'))
 
@@ -108,6 +111,7 @@ def register():
 @auth_bp.route('/logout')
 @login_required
 def logout():
+    session.clear()
     logout_user()
     flash('You have been securely logged out.', 'info')
     return redirect(url_for('auth.login'))

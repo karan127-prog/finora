@@ -17,7 +17,8 @@ def create_app(config_class=Config):
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'warning'
-    login_manager.session_protection = 'strong'
+    # Use 'basic' session protection for mobile WebView compatibility (prevents session wipe on network/IP switch)
+    login_manager.session_protection = 'basic'
     login_manager.init_app(app)
 
     # Session & Cookie Security
