@@ -16,6 +16,14 @@ def is_safe_url(target):
     test_url = urlparse(urljoin(request.host_url, target))
     return test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc
 
+@auth_bp.route('/')
+def welcome():
+    return render_template(
+        'auth/welcome.html',
+        is_authenticated=current_user.is_authenticated,
+        user_name=current_user.name if current_user.is_authenticated else ''
+    )
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:

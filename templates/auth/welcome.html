@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Welcome to FINORA | Smart Financial Intelligence</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <meta name="theme-color" content="#080E17">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" type="image/png" href="/static/icons/icon-192.png">
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #080E17;
+            color: #F8FAFC;
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            overflow-x: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Ambient Glow Background */
+        .ambient-mesh {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            background-image: 
+                radial-gradient(circle at 50% 15%, rgba(0, 229, 153, 0.14) 0%, transparent 55%),
+                radial-gradient(circle at 90% 85%, rgba(56, 189, 248, 0.08) 0%, transparent 45%),
+                radial-gradient(circle at 10% 90%, rgba(16, 185, 129, 0.06) 0%, transparent 50%);
+        }
+
+        .screen-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 480px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 24px 20px;
+        }
+
+        /* ====================================================
+           1. SPLASH SCREEN (LOGO & AURA)
+           ==================================================== */
+        .splash-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 80vh;
+            text-align: center;
+            animation: fadeIn 0.4s ease-out;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        .splash-logo-wrap {
+            position: relative;
+            width: 104px;
+            height: 104px;
+            margin-bottom: 24px;
+        }
+
+        .splash-logo-aura {
+            position: absolute;
+            inset: -12px;
+            border-radius: 36px;
+            background: radial-gradient(circle, rgba(0, 229, 153, 0.45) 0%, rgba(0, 229, 153, 0) 70%);
+            filter: blur(14px);
+            animation: pulseAura 2.2s infinite ease-in-out;
+        }
+
+        .splash-logo-img {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border-radius: 26px;
+            object-fit: cover;
+            border: 1px solid rgba(0, 229, 153, 0.4);
+            box-shadow: 0 0 35px rgba(0, 229, 153, 0.35);
+            background: #0E1724;
+        }
+
+        .splash-title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            background: linear-gradient(135deg, #FFFFFF 30%, #00E599 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
+        }
+
+        .splash-tagline {
+            font-size: 0.9rem;
+            color: #94A3B8;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+        }
+
+        .splash-loader-bar {
+            margin-top: 36px;
+            width: 140px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .splash-loader-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 45%;
+            background: #00E599;
+            border-radius: 4px;
+            box-shadow: 0 0 10px #00E599;
+            animation: indeterminateSlide 1.2s infinite ease-in-out;
+        }
+
+        .splash-auth-user {
+            margin-top: 14px;
+            font-size: 0.8rem;
+            color: #00E599;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* ====================================================
+           2. ONBOARDING & BENEFITS WALKTHROUGH
+           ==================================================== */
+        .walkthrough-section {
+            display: none;
+            opacity: 0;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 100vh;
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        .walkthrough-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0 16px 0;
+        }
+
+        .walkthrough-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .walkthrough-mini-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 9px;
+            border: 1px solid rgba(0, 229, 153, 0.3);
+            box-shadow: 0 0 10px rgba(0, 229, 153, 0.2);
+        }
+
+        .walkthrough-brand-name {
+            font-size: 1.15rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: #FFFFFF;
+        }
+
+        .skip-btn {
+            background: transparent;
+            border: none;
+            color: #94A3B8;
+            font-size: 0.82rem;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: color 0.2s ease, background 0.2s ease;
+        }
+
+        .skip-btn:hover {
+            color: #00E599;
+            background: rgba(0, 229, 153, 0.1);
+        }
+
+        /* Slides Card Carousel Container */
+        .slides-wrapper {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+            margin: auto 0;
+            padding: 10px 0;
+        }
+
+        .slide-item {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            opacity: 0;
+            transform: translateX(30px);
+            transition: opacity 0.35s ease, transform 0.35s ease;
+        }
+
+        .slide-item.active {
+            display: flex;
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        /* Graphic Card for each benefit */
+        .benefit-card-visual {
+            width: 100%;
+            background: #0E1724;
+            border: 1px solid #1B2B3E;
+            border-radius: 22px;
+            padding: 24px 20px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.6);
+        }
+
+        .benefit-card-visual::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00E599, transparent);
+        }
+
+        .benefit-pill-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: rgba(0, 229, 153, 0.12);
+            border: 1px solid rgba(0, 229, 153, 0.25);
+            border-radius: 20px;
+            color: #00E599;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+
+        /* Visual Mockup 1: Receipt Scan */
+        .scan-mockup {
+            background: #080E17;
+            border: 1px dashed rgba(0, 229, 153, 0.4);
+            border-radius: 14px;
+            padding: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .laser-scanner {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #00E599;
+            box-shadow: 0 0 12px 2px #00E599;
+            animation: scanLine 2.4s infinite ease-in-out;
+        }
+
+        .receipt-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+        }
+
+        .receipt-detected-tag {
+            background: rgba(0, 229, 153, 0.15);
+            color: #00E599;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.74rem;
+        }
+
+        /* Visual Mockup 2: Analytics */
+        .analytics-mockup {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .stat-mini-box {
+            background: #080E17;
+            border: 1px solid #1B2B3E;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: left;
+        }
+
+        .stat-mini-label {
+            font-size: 0.68rem;
+            color: #94A3B8;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .stat-mini-val {
+            font-size: 1.05rem;
+            font-weight: 800;
+            margin-top: 4px;
+        }
+
+        .budget-meter-wrap {
+            grid-column: span 2;
+            background: #080E17;
+            border: 1px solid #1B2B3E;
+            border-radius: 12px;
+            padding: 12px;
+            text-align: left;
+        }
+
+        .meter-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .meter-bar-fill {
+            height: 100%;
+            width: 72%;
+            background: #00E599;
+            border-radius: 6px;
+            box-shadow: 0 0 8px rgba(0, 229, 153, 0.5);
+        }
+
+        /* Visual Mockup 3: Security */
+        .security-mockup {
+            background: #080E17;
+            border: 1px solid #1B2B3E;
+            border-radius: 14px;
+            padding: 18px 14px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            text-align: left;
+        }
+
+        .shield-icon-wrap {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            background: rgba(0, 229, 153, 0.12);
+            border: 1px solid rgba(0, 229, 153, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #00E599;
+            flex-shrink: 0;
+        }
+
+        .slide-heading {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #FFFFFF;
+            letter-spacing: -0.02em;
+            margin-bottom: 10px;
+            line-height: 1.3;
+        }
+
+        .slide-text {
+            font-size: 0.86rem;
+            color: #94A3B8;
+            line-height: 1.55;
+            padding: 0 10px;
+        }
+
+        /* Controls Footer */
+        .walkthrough-footer {
+            padding: 16px 0 10px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .dots-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.18);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .dot.active {
+            width: 26px;
+            background: #00E599;
+            box-shadow: 0 0 10px rgba(0, 229, 153, 0.6);
+        }
+
+        .actions-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .btn-prev {
+            flex: 0 0 48px;
+            height: 50px;
+            border-radius: 14px;
+            border: 1px solid #1B2B3E;
+            background: #0E1724;
+            color: #CBD5E1;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-prev:hover {
+            border-color: rgba(0, 229, 153, 0.3);
+            color: #FFFFFF;
+        }
+
+        .btn-next {
+            flex: 1;
+            height: 50px;
+            border-radius: 14px;
+            border: none;
+            background: linear-gradient(135deg, #00E599 0%, #00B377 100%);
+            color: #080E17;
+            font-size: 0.96rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 18px rgba(0, 229, 153, 0.35);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn-next:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 22px rgba(0, 229, 153, 0.5);
+        }
+
+        .btn-next:active {
+            transform: translateY(0);
+        }
+
+        /* ====================================================
+           3. AUTH SELECTION VIEW (SIGN IN / CREATE ACCOUNT)
+           ==================================================== */
+        .auth-section {
+            display: none;
+            opacity: 0;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 85vh;
+            text-align: center;
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        .auth-card-panel {
+            background: #0E1724;
+            border: 1px solid #1B2B3E;
+            border-radius: 24px;
+            padding: 32px 24px;
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .auth-card-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00E599, transparent);
+        }
+
+        .auth-top-logo {
+            width: 68px;
+            height: 68px;
+            border-radius: 18px;
+            object-fit: cover;
+            border: 1px solid rgba(0, 229, 153, 0.35);
+            box-shadow: 0 0 25px rgba(0, 229, 153, 0.3);
+            margin-bottom: 16px;
+        }
+
+        .auth-welcome-title {
+            font-size: 1.45rem;
+            font-weight: 800;
+            color: #FFFFFF;
+            letter-spacing: -0.02em;
+            margin-bottom: 6px;
+        }
+
+        .auth-welcome-desc {
+            font-size: 0.84rem;
+            color: #94A3B8;
+            margin-bottom: 28px;
+            line-height: 1.5;
+        }
+
+        .auth-options-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .btn-auth-primary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(135deg, #00E599 0%, #00B377 100%);
+            color: #080E17;
+            padding: 14px 18px;
+            border-radius: 14px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 18px rgba(0, 229, 153, 0.3);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn-auth-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 22px rgba(0, 229, 153, 0.45);
+        }
+
+        .btn-auth-secondary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #080E17;
+            border: 1px solid rgba(0, 229, 153, 0.35);
+            color: #FFFFFF;
+            padding: 14px 18px;
+            border-radius: 14px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-auth-secondary:hover {
+            border-color: #00E599;
+            background: rgba(0, 229, 153, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .btn-auth-inner {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-align: left;
+        }
+
+        .btn-auth-subtext {
+            font-size: 0.72rem;
+            font-weight: 500;
+            opacity: 0.8;
+            margin-top: 1px;
+        }
+
+        .back-to-slides-btn {
+            background: transparent;
+            border: none;
+            color: #94A3B8;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-top: 22px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: color 0.2s ease;
+        }
+
+        .back-to-slides-btn:hover {
+            color: #00E599;
+        }
+
+        /* Keyframe Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulseAura {
+            0% { transform: scale(0.95); opacity: 0.6; }
+            50% { transform: scale(1.18); opacity: 0.9; }
+            100% { transform: scale(0.95); opacity: 0.6; }
+        }
+
+        @keyframes indeterminateSlide {
+            0% { left: -45%; width: 35%; }
+            50% { left: 35%; width: 55%; }
+            100% { left: 100%; width: 45%; }
+        }
+
+        @keyframes scanLine {
+            0% { top: 0%; opacity: 0.8; }
+            50% { top: 85%; opacity: 1; }
+            100% { top: 0%; opacity: 0.8; }
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-mesh"></div>
+
+    <div class="screen-container">
+        <!-- ==============================================
+             1. SPLASH SCREEN (PHASE 1)
+             ============================================== -->
+        <div class="splash-section" id="splashSection">
+            <div class="splash-logo-wrap">
+                <div class="splash-logo-aura"></div>
+                <img src="/static/icons/icon-512.png" alt="FINORA" class="splash-logo-img">
+            </div>
+
+            <h1 class="splash-title">FINORA</h1>
+            <p class="splash-tagline">Smart Financial Intelligence</p>
+
+            <div class="splash-loader-bar">
+                <div class="splash-loader-fill"></div>
+            </div>
+
+            {% if is_authenticated %}
+                <div class="splash-auth-user">
+                    <i data-lucide="check-circle-2" style="width: 14px; height: 14px;"></i>
+                    <span>Welcome back, {{ user_name or 'User' }}! Opening workspace...</span>
+                </div>
+            {% else %}
+                <div style="font-size: 0.74rem; color: #64748B; margin-top: 14px; font-weight: 500;">
+                    Loading your financial system...
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- ==============================================
+             2. BENEFITS WALKTHROUGH (PHASE 2 - FOR VISITORS)
+             ============================================== -->
+        <div class="walkthrough-section" id="walkthroughSection">
+            <!-- Top Header -->
+            <div class="walkthrough-header">
+                <div class="walkthrough-brand">
+                    <img src="/static/icons/icon-192.png" alt="FINORA" class="walkthrough-mini-icon">
+                    <span class="walkthrough-brand-name">FINORA</span>
+                </div>
+                <button type="button" class="skip-btn" id="skipBtn">Skip</button>
+            </div>
+
+            <!-- Slides Container -->
+            <div class="slides-wrapper" id="slidesWrapper">
+                <!-- Slide 1: Receipt Auto-Fill -->
+                <div class="slide-item active" data-step="1">
+                    <div class="benefit-card-visual">
+                        <div class="benefit-pill-badge">
+                            <i data-lucide="scan-line" style="width: 13px; height: 13px;"></i>
+                            <span>Smart Auto-Fill</span>
+                        </div>
+
+                        <div class="scan-mockup">
+                            <div class="laser-scanner"></div>
+                            <div class="receipt-row">
+                                <span style="color: #94A3B8;">UPI Payment Detected</span>
+                                <span class="receipt-detected-tag">Auto Captured</span>
+                            </div>
+                            <div class="receipt-row" style="margin-top: 10px;">
+                                <span style="font-weight: 700; color: #FFFFFF; font-size: 0.9rem;">Paid to Swiggy</span>
+                                <span style="font-weight: 800; color: #00E599; font-size: 1.05rem;">₹420.00</span>
+                            </div>
+                            <div style="font-size: 0.7rem; color: #64748B; margin-top: 6px; text-align: left;">
+                                <i data-lucide="check" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; color: #00E599;"></i>
+                                Merchant & Category pre-filled automatically
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 class="slide-heading">Instant Bill & Receipt Auto-Fill</h2>
+                    <p class="slide-text">
+                        GPay, PhonePe ya Paytm se payment screenshot share karein — FINORA bina kisi manual typing ke amount aur payee khud detect karke ledger me add kar deta hai.
+                    </p>
+                </div>
+
+                <!-- Slide 2: Real-Time Cashflow & Budgets -->
+                <div class="slide-item" data-step="2">
+                    <div class="benefit-card-visual">
+                        <div class="benefit-pill-badge" style="background: rgba(56, 189, 248, 0.12); color: #38BDF8; border-color: rgba(56, 189, 248, 0.25);">
+                            <i data-lucide="trending-up" style="width: 13px; height: 13px;"></i>
+                            <span>Financial Clarity</span>
+                        </div>
+
+                        <div class="analytics-mockup">
+                            <div class="stat-mini-box">
+                                <div class="stat-mini-label">Total Inflows</div>
+                                <div class="stat-mini-val" style="color: #00E599;">+₹45,000</div>
+                            </div>
+                            <div class="stat-mini-box">
+                                <div class="stat-mini-label">Total Outflows</div>
+                                <div class="stat-mini-val" style="color: #FF536E;">-₹14,200</div>
+                            </div>
+                            <div class="budget-meter-wrap">
+                                <div style="display: flex; justify-content: space-between; font-size: 0.74rem;">
+                                    <span style="color: #CBD5E1; font-weight: 600;">Monthly Budget Health</span>
+                                    <span style="color: #00E599; font-weight: 700;">68% Safe</span>
+                                </div>
+                                <div class="meter-bar">
+                                    <div class="meter-bar-fill"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 class="slide-heading">Real-Time Analytics & Budgets</h2>
+                    <p class="slide-text">
+                        Har kharch aur aamdani par 100% control. Dynamic budget alerts, upcoming bills calendar aur intelligent visual charts se apni savings ko tezi se badhayein.
+                    </p>
+                </div>
+
+                <!-- Slide 3: 100% Private Offline Vault -->
+                <div class="slide-item" data-step="3">
+                    <div class="benefit-card-visual">
+                        <div class="benefit-pill-badge" style="background: rgba(0, 229, 153, 0.12); color: #00E599;">
+                            <i data-lucide="shield-check" style="width: 13px; height: 13px;"></i>
+                            <span>Vault Security</span>
+                        </div>
+
+                        <div class="security-mockup">
+                            <div class="shield-icon-wrap">
+                                <i data-lucide="lock" style="width: 22px; height: 22px;"></i>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.88rem; font-weight: 700; color: #FFFFFF;">Permanent Local Database</div>
+                                <div style="font-size: 0.74rem; color: #94A3B8; margin-top: 3px;">
+                                    Zero cloud leaks • Offline encryption • Master Admin control
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h2 class="slide-heading">Complete Privacy & Permanent Data</h2>
+                    <p class="slide-text">
+                        Aapka personal financial record aapke device ke secure database me save rehta hai. Update ya restart karne par bhi data kabhi nahi udega.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Bottom Navigation Bar -->
+            <div class="walkthrough-footer">
+                <div class="dots-container">
+                    <div class="dot active" data-dot="1"></div>
+                    <div class="dot" data-dot="2"></div>
+                    <div class="dot" data-dot="3"></div>
+                </div>
+
+                <div class="actions-row">
+                    <button type="button" class="btn-prev" id="prevBtn" aria-label="Previous Slide">
+                        <i data-lucide="chevron-left" style="width: 20px; height: 20px;"></i>
+                    </button>
+                    <button type="button" class="btn-next" id="nextBtn">
+                        <span id="nextBtnText">Next</span>
+                        <i data-lucide="arrow-right" style="width: 18px; height: 18px;" id="nextBtnIcon"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==============================================
+             3. AUTH SELECTION (PHASE 3 - LOGIN / SIGN UP)
+             ============================================== -->
+        <div class="auth-section" id="authSection">
+            <div class="auth-card-panel">
+                <img src="/static/icons/icon-512.png" alt="FINORA" class="auth-top-logo">
+                <h2 class="auth-welcome-title">Master Your Wealth</h2>
+                <p class="auth-welcome-desc">
+                    Login to your existing account or create a brand new personal ledger in seconds.
+                </p>
+
+                <div class="auth-options-group">
+                    <a href="{{ url_for('auth.login') }}" class="btn-auth-primary">
+                        <div class="btn-auth-inner">
+                            <i data-lucide="log-in" style="width: 20px; height: 20px;"></i>
+                            <div>
+                                <div>Sign In to Your Account</div>
+                                <div class="btn-auth-subtext">Existing users & Master Admin</div>
+                            </div>
+                        </div>
+                        <i data-lucide="chevron-right" style="width: 18px; height: 18px;"></i>
+                    </a>
+
+                    <a href="{{ url_for('auth.register') }}" class="btn-auth-secondary">
+                        <div class="btn-auth-inner">
+                            <i data-lucide="user-plus" style="width: 20px; height: 20px; color: #00E599;"></i>
+                            <div>
+                                <div>Create New Account</div>
+                                <div class="btn-auth-subtext" style="color: #94A3B8;">Free lifetime personal ledger</div>
+                            </div>
+                        </div>
+                        <i data-lucide="chevron-right" style="width: 18px; height: 18px; color: #94A3B8;"></i>
+                    </a>
+                </div>
+
+                <button type="button" class="back-to-slides-btn" id="backToSlidesBtn">
+                    <i data-lucide="arrow-left" style="width: 14px; height: 14px;"></i>
+                    <span>Review features again</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const IS_AUTHENTICATED = {{ 'true' if is_authenticated else 'false' }};
+        const DASHBOARD_URL = "{{ url_for('dashboard.index') }}";
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) window.lucide.createIcons();
+
+            const splashSection = document.getElementById('splashSection');
+            const walkthroughSection = document.getElementById('walkthroughSection');
+            const authSection = document.getElementById('authSection');
+
+            const slides = document.querySelectorAll('.slide-item');
+            const dots = document.querySelectorAll('.dot');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const nextBtnText = document.getElementById('nextBtnText');
+            const skipBtn = document.getElementById('skipBtn');
+            const backToSlidesBtn = document.getElementById('backToSlidesBtn');
+
+            let currentSlide = 1;
+            const totalSlides = slides.length;
+
+            // 1. Splash Screen Timing Logic
+            // If already authenticated: wait 1.3 seconds, then seamlessly open dashboard!
+            if (IS_AUTHENTICATED) {
+                setTimeout(() => {
+                    window.location.replace(DASHBOARD_URL);
+                }, 1300);
+                return;
+            }
+
+            // If not authenticated: show splash for 1.3 seconds, then transition to benefits walkthrough
+            setTimeout(() => {
+                splashSection.style.opacity = '0';
+                splashSection.style.transform = 'translateY(-12px)';
+                setTimeout(() => {
+                    splashSection.style.display = 'none';
+                    walkthroughSection.style.display = 'flex';
+                }, 350);
+            }, 1350);
+
+            // 2. Carousel Slide Navigation
+            function updateSlide(step) {
+                currentSlide = step;
+                slides.forEach(s => s.classList.remove('active'));
+                dots.forEach(d => d.classList.remove('active'));
+
+                const targetSlide = document.querySelector(`.slide-item[data-step="${currentSlide}"]`);
+                const targetDot = document.querySelector(`.dot[data-dot="${currentSlide}"]`);
+
+                if (targetSlide) targetSlide.classList.add('active');
+                if (targetDot) targetDot.classList.add('active');
+
+                // Prev button visibility
+                if (currentSlide > 1) {
+                    prevBtn.style.display = 'flex';
+                } else {
+                    prevBtn.style.display = 'none';
+                }
+
+                // Next button text & icon
+                if (currentSlide === totalSlides) {
+                    nextBtnText.innerText = 'Get Started';
+                } else {
+                    nextBtnText.innerText = 'Next';
+                }
+
+                if (window.lucide) window.lucide.createIcons();
+            }
+
+            // Next button click
+            nextBtn.addEventListener('click', () => {
+                if (currentSlide < totalSlides) {
+                    updateSlide(currentSlide + 1);
+                } else {
+                    // Final slide reached -> Go to Auth view
+                    showAuthSection();
+                }
+            });
+
+            // Prev button click
+            prevBtn.addEventListener('click', () => {
+                if (currentSlide > 1) {
+                    updateSlide(currentSlide - 1);
+                }
+            });
+
+            // Dots click
+            dots.forEach(d => {
+                d.addEventListener('click', () => {
+                    const step = parseInt(d.getAttribute('data-dot'));
+                    if (step) updateSlide(step);
+                });
+            });
+
+            // Skip button click
+            if (skipBtn) {
+                skipBtn.addEventListener('click', () => {
+                    showAuthSection();
+                });
+            }
+
+            // Back to slides from Auth view
+            if (backToSlidesBtn) {
+                backToSlidesBtn.addEventListener('click', () => {
+                    authSection.style.display = 'none';
+                    walkthroughSection.style.display = 'flex';
+                    updateSlide(1);
+                });
+            }
+
+            function showAuthSection() {
+                walkthroughSection.style.display = 'none';
+                authSection.style.display = 'flex';
+                if (window.lucide) window.lucide.createIcons();
+            }
+
+            // 3. Touch / Mobile Swipe Support
+            const wrapper = document.getElementById('slidesWrapper');
+            let startX = 0;
+            let endX = 0;
+
+            wrapper.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+            }, { passive: true });
+
+            wrapper.addEventListener('touchend', (e) => {
+                endX = e.changedTouches[0].clientX;
+                handleSwipe();
+            }, { passive: true });
+
+            function handleSwipe() {
+                const diff = startX - endX;
+                if (Math.abs(diff) > 40) {
+                    if (diff > 0) {
+                        // Swiped Left -> Next
+                        if (currentSlide < totalSlides) {
+                            updateSlide(currentSlide + 1);
+                        } else {
+                            showAuthSection();
+                        }
+                    } else {
+                        // Swiped Right -> Prev
+                        if (currentSlide > 1) {
+                            updateSlide(currentSlide - 1);
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
