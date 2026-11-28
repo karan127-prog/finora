@@ -142,33 +142,32 @@ public class BankSmsReceiver extends BroadcastReceiver {
         }
 
         // 3. Check for DEBIT (Expense) or CREDIT (Income)
-        boolean isDebit = lowerSms.contains("debited") ||
-                          lowerSms.contains("spent") ||
-                          lowerSms.contains("transferred") ||
-                          lowerSms.contains("paid") ||
-                          lowerSms.contains("withdrawn") ||
-                          lowerSms.contains("purchase of") ||
-                          lowerSms.contains("trf to");
+        boolean hasDebit = lowerSms.matches(".*\\b(debited|deducted|deduction|spent|transferred|paid|withdrawn|purchase\\s+of|trf\\s+to|bill\\s+payment)\\b.*");
+        boolean hasCredit = lowerSms.matches(".*\\b(credited|received\\s+from|deposited|cr\\s+to|refund|cashback|has\\s+been\\s+credited)\\b.*");
 
-        boolean isCredit = lowerSms.contains("credited") ||
-                           lowerSms.contains("received") ||
-                           lowerSms.contains("deposited") ||
-                           lowerSms.contains("cr to") ||
-                           lowerSms.contains("refund") ||
-                           lowerSms.contains("cashback");
-
-        if (!isDebit && !isCredit) {
+        if (!hasDebit && !hasCredit) {
             return;
         }
 
-        final String txType = isCredit ? "income" : "expense";
+        boolean isIncome = false;
+        if (hasCredit && !hasDebit) {
+            isIncome = true;
+        } else if (hasCredit && hasDebit) {
+            if (lowerSms.matches(".*\\b(debited\\s+from|amount\\s+debited|account\\s+debited|debited\\s+by|deducted\\s+from|amount\\s+deducted)\\b.*")) {
+                isIncome = false;
+            } else if (lowerSms.matches(".*\\b(credited\\s+to|amount\\s+credited|account\\s+credited)\\b.*")) {
+                isIncome = true;
+            }
+        }
+
+        final String txType = isIncome ? "income" : "expense";
 
         // 3. Extract amount
         double amount = extractAmount(rawSms);
         if (amount <= 0) return;
 
         // 4. Extract merchant / payee
-        String payee = extractPayee(rawSms, isCredit);
+        String payee = extractPayee(rawSms, isIncome);
         if (payee == null || payee.trim().isEmpty()) {
             payee = extractBankName(sender);
         }
@@ -201,8 +200,8 @@ public class BankSmsReceiver extends BroadcastReceiver {
     }
 
     private static double extractAmount(String raw) {
-        // Pattern 1: Action keywords with amount (debited by 10.00, debited with 500, spent by 250, credited by 100)
-        Pattern p1 = Pattern.compile("(?:debited\\s+by|debited\\s+with|debited\\s+for|spent\\s+by|spent\\s+of|credited\\s+by|credited\\s+with|received|purchase\\s+of|rs\\.?|inr|₹)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+        // Pattern 1: Action keywords with amount (debited by 10.00, deducted by 500, debited with 500, spent by 250, credited by 100)
+        Pattern p1 = Pattern.compile("(?:debited\\s+(?:by|for|with|of)?|deducted\\s+(?:by|for|with|of)?|amount\\s+(?:debited|deducted|paid):?|spent\\s+(?:by|of)?|credited\\s+(?:by|with)?|received|purchase\\s+of|rs\\.?|inr|₹)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
         Matcher m1 = p1.matcher(raw);
         if (m1.find()) {
             try {
@@ -210,8 +209,8 @@ public class BankSmsReceiver extends BroadcastReceiver {
             } catch (Exception ignored) {}
         }
 
-        // Pattern 2: Amount followed by currency symbol (500.00 Rs, 10 ₹)
-        Pattern p2 = Pattern.compile("([\\d,]+(?:\\.\\d{1,2})?)\\s*(?:rs\\.?|inr|₹)", Pattern.CASE_INSENSITIVE);
+        // Pattern 2: Suffix keywords (500.00 deducted, 450 debited, 500.00 Rs, 10 ₹)
+        Pattern p2 = Pattern.compile("([\\d,]+(?:\\.\\d{1,2})?)\\s*(?:rs\\.?|inr|₹|debited|deducted|spent|paid)", Pattern.CASE_INSENSITIVE);
         Matcher m2 = p2.matcher(raw);
         if (m2.find()) {
             try {
@@ -220,7 +219,7 @@ public class BankSmsReceiver extends BroadcastReceiver {
         }
 
         // Pattern 3: General fallback
-        Pattern p3 = Pattern.compile("(?:paid|debited|spent|sent|trf)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+        Pattern p3 = Pattern.compile("(?:paid|debited|deducted|spent|sent|trf)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
         Matcher m3 = p3.matcher(raw);
         if (m3.find()) {
             try {

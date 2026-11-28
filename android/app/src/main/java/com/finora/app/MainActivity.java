@@ -270,8 +270,8 @@ public class MainActivity extends AppCompatActivity {
         if (s == null) return false;
         String t = s.trim();
         if (t.length() < 2 || t.length() > 40) return false;
-        if (t.matches("(?i)^(₹|rs\\.?|inr|completed|successful|payment|transaction|date|upi|utr|ref|details|debited|credited|banking|account).*")) return false;
-        if (t.matches("^[\\d,.:\\-\\s]+$")) return false;
+        if (t.matches("(?i)^(₹|rs\\.?|inr|completed|successful|success|payment|transaction|date|upi|utr|ref|details|debited|deducted|deduction|credited|banking|account|balance|avail|total|bill|order|paid|sent|transfer|money|\\d).*")) return false;
+        if (t.matches("^[\\d,.:\\-\\s/]+$")) return false;
         return true;
     }
 
@@ -297,49 +297,92 @@ public class MainActivity extends AppCompatActivity {
             res.sourceApp = "UPI Payment";
         }
 
-        // 2. Determine Income vs Expense
-        boolean isIncome = lower.contains("received from") ||
-                           lower.contains("credited to") ||
-                           lower.contains("credited by") ||
-                           lower.contains("received") ||
-                           lower.contains("sent you") ||
-                           lower.contains("added to your");
+        // 2. Determine Income vs Expense (Deductions / Debits take precedence)
+        boolean hasDebit = lower.matches(".*\\b(debited|deducted|deduction|paid|spent|payment\\s+to|paid\\s+to|sent\\s+to|transfer\\s+to|transferred\\s+to|bill\\s+payment|recharge)\\b.*");
+        boolean hasCredit = lower.matches(".*\\b(received\\s+from|money\\s+received|credited\\s+to|credited\\s+with|credited\\s+by|has\\s+been\\s+credited|cashback\\s+credited|refund\\s+credited|sent\\s+you|added\\s+to\\s+your)\\b.*");
+
+        boolean isIncome = false;
+        if (hasCredit && !hasDebit) {
+            isIncome = true;
+        } else if (hasCredit && hasDebit) {
+            if (lower.matches(".*\\b(debited\\s+from|amount\\s+debited|account\\s+debited|debited\\s+by|deducted\\s+from|amount\\s+deducted)\\b.*")) {
+                isIncome = false;
+            } else if (lower.matches(".*\\b(credited\\s+to|amount\\s+credited|account\\s+credited)\\b.*")) {
+                isIncome = true;
+            }
+        }
         res.type = isIncome ? "income" : "expense";
 
-        // 3. Extract Amount
-        Pattern p1 = Pattern.compile("(?:rs\\.?|inr|₹|debited\\s+by|debited\\s+with|credited\\s+by)[\\s\\n]*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
-        Matcher m1 = p1.matcher(raw);
-        if (m1.find()) {
+        String[] lines = raw.split("\\r?\\n");
+
+        // 3. Extract Amount (Robust Multi-Stage Deducted & UPI Parser)
+        // Pattern 1: Explicit Debit / Deducted Keywords with amount
+        Pattern pDebit = Pattern.compile("(?:debited\\s+(?:by|for|with|of)?|deducted\\s+(?:by|for|with|of|from\\s+account\\s+for)?|amount\\s+(?:debited|deducted|paid)\\s*(?:is|of)?:?|amt\\s+(?:debited|deducted):?)[\\s\\n:]*(?:rs\\.?|inr|₹)?[\\s\\n]*([0-9,]+(?:\\.[0-9]{1,2})?)", Pattern.CASE_INSENSITIVE);
+        Matcher mDebit = pDebit.matcher(raw);
+        if (mDebit.find()) {
             try {
-                res.amount = Double.parseDouble(m1.group(1).replace(",", ""));
+                res.amount = Double.parseDouble(mDebit.group(1).replace(",", ""));
             } catch (Exception ignored) {}
         }
 
+        // Pattern 2: Suffix Debit / Deduction (e.g. "450.00 deducted", "₹450 debited")
         if (res.amount <= 0) {
-            Pattern p2 = Pattern.compile("([\\d,]+(?:\\.\\d{1,2})?)[\\s\\n]*(?:rs\\.?|inr|₹)", Pattern.CASE_INSENSITIVE);
-            Matcher m2 = p2.matcher(raw);
-            if (m2.find()) {
+            Pattern pSuffix = Pattern.compile("(?:rs\\.?|inr|₹)?[\\s\\n]*([0-9,]+(?:\\.[0-9]{1,2})?)[\\s\\n]*(?:debited|deducted|spent|paid)", Pattern.CASE_INSENSITIVE);
+            Matcher mSuffix = pSuffix.matcher(raw);
+            if (mSuffix.find()) {
                 try {
-                    res.amount = Double.parseDouble(m2.group(1).replace(",", ""));
+                    res.amount = Double.parseDouble(mSuffix.group(1).replace(",", ""));
                 } catch (Exception ignored) {}
             }
         }
 
-        if (res.amount <= 0) {
-            Pattern p3 = Pattern.compile("(?:paid|sent|received|payment\\s+of|amount:?)[\\s\\n]*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
-            Matcher m3 = p3.matcher(raw);
-            if (m3.find()) {
-                try {
-                    res.amount = Double.parseDouble(m3.group(1).replace(",", ""));
-                } catch (Exception ignored) {}
-            }
-        }
-
-        String[] lines = raw.split("\\r?\\n");
+        // Pattern 3: Currency Symbol followed by amount (excluding remaining balance lines)
         if (res.amount <= 0) {
             for (String l : lines) {
-                String clean = l.trim().replaceAll("^[₹RsINR\\s]+", "").replaceAll("[₹RsINR\\s]+$", "");
-                if (clean.matches("^[\\d,]+(\\.\\d{1,2})?$")) {
+                String lc = l.trim();
+                if (lc.matches("(?i).*\\b(bal|balance|avail|avl|acct|a/c)\\b.*") && !lc.matches("(?i).*\\b(debited|deducted|paid|credited)\\b.*")) {
+                    continue;
+                }
+                Matcher mCurr = Pattern.compile("(?:rs\\.?|inr|₹)[\\s\\n]*([0-9,]+(?:\\.[0-9]{1,2})?)", Pattern.CASE_INSENSITIVE).matcher(lc);
+                if (mCurr.find()) {
+                    try {
+                        double parsed = Double.parseDouble(mCurr.group(1).replace(",", ""));
+                        if (parsed > 0 && parsed < 10000000) {
+                            res.amount = parsed;
+                            break;
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        // Pattern 4: Amount followed by currency symbol (500 ₹, 450.00 Rs)
+        if (res.amount <= 0) {
+            Pattern pCurrTrail = Pattern.compile("([0-9,]+(?:\\.[0-9]{1,2})?)[\\s\\n]*(?:rs\\.?|inr|₹)", Pattern.CASE_INSENSITIVE);
+            Matcher mCurrTrail = pCurrTrail.matcher(raw);
+            if (mCurrTrail.find()) {
+                try {
+                    res.amount = Double.parseDouble(mCurrTrail.group(1).replace(",", ""));
+                } catch (Exception ignored) {}
+            }
+        }
+
+        // Pattern 5: Keywords 'payment of', 'paid', 'sent', 'transfer of'
+        if (res.amount <= 0) {
+            Pattern pPaid = Pattern.compile("(?:payment\\s+(?:of)?|paid|sent|transfer\\s+(?:of)?|amount:?)[\\s\\n:]*(?:rs\\.?|inr|₹)?[\\s\\n]*([0-9,]+(?:\\.[0-9]{1,2})?)", Pattern.CASE_INSENSITIVE);
+            Matcher mPaid = pPaid.matcher(raw);
+            if (mPaid.find()) {
+                try {
+                    res.amount = Double.parseDouble(mPaid.group(1).replace(",", ""));
+                } catch (Exception ignored) {}
+            }
+        }
+
+        // Pattern 6: Line with standalone number
+        if (res.amount <= 0) {
+            for (String l : lines) {
+                String clean = l.trim().replaceAll("(?i)^[₹RsINR\\s:]+", "").replaceAll("(?i)[₹RsINR\\s]+$", "");
+                if (clean.matches("^[0-9,]+(\\.[0-9]{1,2})?$")) {
                     try {
                         double parsed = Double.parseDouble(clean.replace(",", ""));
                         if (parsed > 0 && parsed < 10000000) {
@@ -354,58 +397,87 @@ public class MainActivity extends AppCompatActivity {
         // 4. Extract Exact Payee / Merchant / Sender Name
         String detectedName = "";
 
-        for (int i = 0; i < lines.length; i++) {
-            String line = lines[i].trim();
+        // Strategy A: 'Payment of X to Name' or 'Paid X to Name'
+        Matcher mToAfterAmt = Pattern.compile("(?i)(?:payment\\s+(?:of\\s+)?|paid\\s+|sent\\s+)(?:rs\\.?|inr|₹)?\\s*[\\d,.]+\\s+to\\s+([A-Za-z0-9&'.-][A-Za-z0-9\\s&'.-]{1,34}?)(?:\\r?\\n|\\b(?:on|via|ref|completed|successful|using|debited|deducted)\\b|$)").matcher(raw);
+        if (mToAfterAmt.find()) {
+            String cand = mToAfterAmt.group(1).trim();
+            if (isValidPayeeCandidate(cand)) {
+                detectedName = cand;
+            }
+        }
 
-            // Standalone Header line: "Paid to", "Payment to", "To:", "Received from"
-            if (line.matches("(?i)^(paid\\s+to|payment\\s+to|transfer\\s+to|transferred\\s+to|sent\\s+to|received\\s+from|to:?|from:?)$")) {
-                if (i + 1 < lines.length) {
-                    String nextLine = lines[i + 1].trim();
-                    if (isValidPayeeCandidate(nextLine)) {
-                        detectedName = nextLine;
-                        break;
+        // Strategy B: Standalone Header line: "Paid to", "Paid", "To:", "Payment to", "Transfer to", "Money sent to", "Money sent", "Received from"
+        if (detectedName.isEmpty()) {
+            for (int i = 0; i < lines.length; i++) {
+                String line = lines[i].trim();
+                if (line.matches("(?i)^(paid\\s+to|paid|payment\\s+to|transfer\\s+to|transferred\\s+to|sent\\s+to|money\\s+sent\\s+(?:to)?|money\\s+sent|received\\s+from|to:?|from:?)$")) {
+                    if (i + 1 < lines.length) {
+                        String nextLine = lines[i + 1].trim();
+                        if (isValidPayeeCandidate(nextLine)) {
+                            detectedName = nextLine;
+                            break;
+                        }
                     }
-                }
-            }
-
-            // Inline Header: "Paid to Ram Kumar" or "To: Vijay Store"
-            Matcher mInline = Pattern.compile("(?i)^(?:paid\\s+to|payment\\s+to|transfer\\s+to|transferred\\s+to|sent\\s+to|received\\s+from|to:|from:)\\s+([A-Za-z0-9\\s&'.-]{2,35})").matcher(line);
-            if (mInline.find()) {
-                String cand = mInline.group(1).trim();
-                if (isValidPayeeCandidate(cand)) {
-                    detectedName = cand;
-                    break;
-                }
-            }
-
-            // Banking / Merchant label: "Banking Name: XYZ"
-            Matcher mBank = Pattern.compile("(?i)(?:banking\\s+name:?|merchant:?)\\s*([A-Za-z0-9\\s&'.-]{2,35})").matcher(line);
-            if (mBank.find()) {
-                String cand = mBank.group(1).trim();
-                if (isValidPayeeCandidate(cand)) {
-                    detectedName = cand;
-                    break;
                 }
             }
         }
 
-        // Fallback: Extract name from UPI handle (e.g. "rohit.sharma@oksbi" -> "Rohit Sharma")
+        // Strategy C: Inline Header: "Paid to Ram Kumar" or "To: Vijay Store"
+        if (detectedName.isEmpty()) {
+            for (String line : lines) {
+                Matcher mInline = Pattern.compile("(?i)^(?:paid\\s+to|payment\\s+to|transfer\\s+to|transferred\\s+to|sent\\s+to|money\\s+sent\\s+(?:to)?|received\\s+from|to:|from:)\\s+([A-Za-z0-9\\s&'.-]{2,35})").matcher(line);
+                if (mInline.find()) {
+                    String cand = mInline.group(1).trim();
+                    if (isValidPayeeCandidate(cand)) {
+                        detectedName = cand;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Strategy D: Bank SMS pattern: towards UPI/Merchant/ref or by UPI: Merchant
+        if (detectedName.isEmpty()) {
+            Matcher mSms = Pattern.compile("(?i)(?:towards\\s+upi/|by\\s+upi:\\s*|to\\s+vpa\\s+|towards\\s+)([A-Za-z0-9\\s&'.-]{2,30})").matcher(raw);
+            if (mSms.find()) {
+                String cand = mSms.group(1).split("/")[0].trim();
+                if (isValidPayeeCandidate(cand)) {
+                    detectedName = cand;
+                }
+            }
+        }
+
+        // Strategy E: Banking / Merchant label: "Banking Name: XYZ"
+        if (detectedName.isEmpty()) {
+            for (String line : lines) {
+                Matcher mBank = Pattern.compile("(?i)(?:banking\\s+name:?|merchant:?)\\s*([A-Za-z0-9\\s&'.-]{2,35})").matcher(line);
+                if (mBank.find()) {
+                    String cand = mBank.group(1).trim();
+                    if (isValidPayeeCandidate(cand)) {
+                        detectedName = cand;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Fallback F: Extract name from UPI handle (e.g. "rohit.sharma@oksbi" -> "Rohit Sharma")
         if (detectedName.isEmpty()) {
             Pattern pUpi = Pattern.compile("(?i)([a-zA-Z0-9.-]{3,25})@(okhdfcbank|okaxis|oksbi|okicici|ybl|ibl|paytm|axl|upi)");
             Matcher mUpi = pUpi.matcher(raw);
             if (mUpi.find()) {
                 String u = mUpi.group(1).replace(".", " ").replace("-", " ").trim();
-                if (u.length() >= 3) {
+                if (u.length() >= 3 && isValidPayeeCandidate(u)) {
                     detectedName = u;
                 }
             }
         }
 
-        // Fallback 2: Check first meaningful non-status line
+        // Fallback G: First meaningful valid line that is not an app name or status
         if (detectedName.isEmpty()) {
             for (String l : lines) {
                 String cl = l.trim();
-                if (isValidPayeeCandidate(cl) && !cl.matches("(?i).*(success|transaction|completed|debited|credited|ref|utr|google|phonepe|paytm|bank|account|order).*")) {
+                if (isValidPayeeCandidate(cl) && !cl.matches("(?i).*(google\\s*pay|phonepe|paytm|bhim|cred|bank|state\\s+bank|hdfc|icici|axis|pnb|kotak|success|transaction|completed|debited|deducted|credited|ref|utr).*")) {
                     detectedName = cl;
                     break;
                 }
@@ -416,8 +488,9 @@ public class MainActivity extends AppCompatActivity {
             detectedName = isIncome ? "UPI Sender" : "UPI Merchant";
         }
 
-        // Clean up unwanted trailing tags
-        detectedName = detectedName.replaceAll("(?i)\\b(using|on|via|account|phonepe|gpay|paytm|completed|successful)\\b.*", "").trim();
+        // Clean up unwanted trailing tags and balance strings
+        detectedName = detectedName.replaceAll("(?i)\\b(bal|balance|avl|avail|using|on|via|account|phonepe|gpay|paytm|completed|successful|debited|deducted)\\b.*", "").trim();
+        detectedName = detectedName.replaceAll("^[\\s.,:-]+|[\\s.,:-]+$", "");
 
         // Format user-facing Title clearly indicating direction ("Paid to X" or "Received from Y")
         if (isIncome) {

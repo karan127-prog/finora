@@ -110,28 +110,26 @@ public class PaymentNotificationListener extends NotificationListenerService {
         }
 
         // 2. CONFIRMED PAYMENT SIGNATURE: Must be a real transaction action, not generic app spam
-        boolean isCredit = fullContent.contains("received") ||
-                           fullContent.contains("credited") ||
-                           fullContent.contains("deposit") ||
-                           fullContent.contains("payment received") ||
-                           fullContent.contains("sent you") ||
-                           fullContent.contains("added to your");
+        boolean hasDebit = fullContent.matches(".*\\b(debited|deducted|deduction|paid|spent|payment\\s+to|paid\\s+to|sent\\s+to|transfer\\s+to|transferred\\s+to|bill\\s+payment|recharge|payment\\s+of)\\b.*");
+        boolean hasCredit = fullContent.matches(".*\\b(received\\s+from|money\\s+received|credited\\s+to|credited\\s+with|credited\\s+by|has\\s+been\\s+credited|cashback\\s+credited|refund\\s+credited|sent\\s+you|added\\s+to\\s+your|deposit)\\b.*");
 
-        boolean isDebit = fullContent.contains("paid") ||
-                          fullContent.contains("debited") ||
-                          fullContent.contains("spent") ||
-                          fullContent.contains("transfer to") ||
-                          fullContent.contains("transferred to") ||
-                          fullContent.contains("sent to") ||
-                          fullContent.contains("payment of") ||
-                          fullContent.contains("successful");
-
-        if (!isCredit && !isDebit) {
+        if (!hasDebit && !hasCredit) {
             Log.d(TAG, "Notification lacks confirmed payment action: " + fullContent);
             return;
         }
 
-        final String txType = isCredit ? "income" : "expense";
+        boolean isIncome = false;
+        if (hasCredit && !hasDebit) {
+            isIncome = true;
+        } else if (hasCredit && hasDebit) {
+            if (fullContent.matches(".*\\b(debited\\s+from|amount\\s+debited|account\\s+debited|debited\\s+by|deducted\\s+from|amount\\s+deducted)\\b.*")) {
+                isIncome = false;
+            } else if (fullContent.matches(".*\\b(credited\\s+to|amount\\s+credited|account\\s+credited)\\b.*")) {
+                isIncome = true;
+            }
+        }
+
+        final String txType = isIncome ? "income" : "expense";
 
         // Extract amount
         double amount = extractAmount(title + " " + text);
@@ -141,10 +139,10 @@ public class PaymentNotificationListener extends NotificationListenerService {
         }
 
         // Extract payee / merchant
-        String rawPayee = extractPayee(title + " " + text, isCredit);
+        String rawPayee = extractPayee(title + " " + text, isIncome);
         final String payee = (rawPayee != null && !rawPayee.trim().isEmpty())
             ? rawPayee
-            : (isCredit ? "Income Transfer" : getAppName(sbn.getPackageName()));
+            : (isIncome ? "Income Transfer" : getAppName(sbn.getPackageName()));
 
         final String sourceApp = getAppName(sbn.getPackageName());
         final double finalAmount = amount;
@@ -171,8 +169,8 @@ public class PaymentNotificationListener extends NotificationListenerService {
     }
 
     private double extractAmount(String raw) {
-        // Pattern 1: Action keywords with amount (debited by 10.00, credited by 500, spent by 250, received 100, ₹ 350.00, Rs. 50, INR 1200)
-        Pattern p1 = Pattern.compile("(?:debited\\s+by|debited\\s+with|debited\\s+for|spent\\s+by|spent\\s+of|credited\\s+by|credited\\s+with|received|purchase\\s+of|rs\\.?|inr|₹)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+        // Pattern 1: Explicit Debit / Deducted Keywords with amount
+        Pattern p1 = Pattern.compile("(?:debited\\s+(?:by|for|with|of)?|deducted\\s+(?:by|for|with|of)?|amount\\s+(?:debited|deducted|paid):?|spent\\s+(?:by|of)?|credited\\s+(?:by|with)?|received|purchase\\s+of|rs\\.?|inr|₹)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
         Matcher m1 = p1.matcher(raw);
         if (m1.find()) {
             try {
@@ -180,8 +178,8 @@ public class PaymentNotificationListener extends NotificationListenerService {
             } catch (Exception ignored) {}
         }
 
-        // Pattern 2: Amount before symbol (350.00 ₹, 50 Rs)
-        Pattern p2 = Pattern.compile("([\\d,]+(?:\\.\\d{1,2})?)\\s*(?:rs\\.?|inr|₹)", Pattern.CASE_INSENSITIVE);
+        // Pattern 2: Suffix keywords (450.00 deducted, 500 debited, 350.00 ₹, 50 Rs)
+        Pattern p2 = Pattern.compile("([\\d,]+(?:\\.\\d{1,2})?)\\s*(?:rs\\.?|inr|₹|debited|deducted|spent|paid)", Pattern.CASE_INSENSITIVE);
         Matcher m2 = p2.matcher(raw);
         if (m2.find()) {
             try {
@@ -189,8 +187,8 @@ public class PaymentNotificationListener extends NotificationListenerService {
             } catch (Exception ignored) {}
         }
 
-        // Pattern 3: Action keywords followed by numbers (paid 50 to, debited 1200, credited 500)
-        Pattern p3 = Pattern.compile("(?:paid|debited|spent|sent|credited|received|transfer of|payment of|trf)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+        // Pattern 3: General fallback
+        Pattern p3 = Pattern.compile("(?:paid|debited|deducted|spent|sent|credited|received|transfer\\s+of|payment\\s+of|trf)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
         Matcher m3 = p3.matcher(raw);
         if (m3.find()) {
             try {
