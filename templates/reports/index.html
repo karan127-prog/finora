@@ -11,11 +11,11 @@
     </div>
 
     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <a href="{{ url_for('reports.export_csv', start_date=start_date, end_date=end_date, type=tx_type, category_id=category_id) }}" class="btn btn-outline">
+        <a href="{{ url_for('reports.export_csv', start_date=start_date, end_date=end_date, type=tx_type, category_id=category_id) }}" class="btn btn-outline" download>
             <i data-lucide="file-spreadsheet" style="width: 16px; height: 16px;"></i>
             <span>Export CSV</span>
         </a>
-        <a href="{{ url_for('reports.export_pdf', start_date=start_date, end_date=end_date, type=tx_type, category_id=category_id) }}" class="btn btn-primary">
+        <a href="{{ url_for('reports.export_pdf', start_date=start_date, end_date=end_date, type=tx_type, category_id=category_id) }}" class="btn btn-primary" download>
             <i data-lucide="file-down" style="width: 16px; height: 16px;"></i>
             <span>Export Official PDF</span>
         </a>

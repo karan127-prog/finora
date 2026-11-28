@@ -31,7 +31,7 @@
             <i data-lucide="folder-plus" style="width: 15px; height: 15px;"></i>
             <span>New Category</span>
         </button>
-        <a href="{{ url_for('reports.export_csv', start_date=start_date, end_date=end_date) }}" class="btn btn-outline">
+        <a href="{{ url_for('reports.export_csv', start_date=start_date, end_date=end_date) }}" class="btn btn-outline" download>
             <i data-lucide="download" style="width: 16px; height: 16px;"></i>
             <span>Export CSV</span>
         </a>

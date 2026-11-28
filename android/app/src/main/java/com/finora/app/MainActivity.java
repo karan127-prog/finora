@@ -24,6 +24,17 @@ import android.widget.EditText;
 import android.net.Uri;
 import android.util.Log;
 import android.widget.Toast;
+import android.content.ContentValues;
+import android.os.Environment;
+import android.provider.MediaStore;
+import androidx.core.content.FileProvider;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -100,6 +111,27 @@ public class MainActivity extends AppCompatActivity {
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                if (request != null && request.getUrl() != null) {
+                    String url = request.getUrl().toString();
+                    if (url.contains("/reports/export/") || url.endsWith(".pdf") || url.endsWith(".csv")) {
+                        downloadReport(url, null, url.endsWith(".csv") ? "text/csv" : "application/pdf");
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                if (url != null && (url.contains("/reports/export/") || url.endsWith(".pdf") || url.endsWith(".csv"))) {
+                    downloadReport(url, null, url.endsWith(".csv") ? "text/csv" : "application/pdf");
+                    return true;
+                }
+                return false;
+            }
+
+            @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 CookieManager.getInstance().flush();
@@ -118,6 +150,10 @@ public class MainActivity extends AppCompatActivity {
                     showChangeUrlDialog();
                 }
             }
+        });
+
+        webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
+            downloadReport(url, contentDisposition, mimetype);
         });
 
         swipeRefresh.setOnRefreshListener(() -> webView.reload());
@@ -725,5 +761,127 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         return super.onKeyDown(keyCode, event);
+    }
+
+    private void downloadReport(String url, String contentDisposition, String mimeType) {
+        Toast.makeText(this, "⚡ Exporting statement...", Toast.LENGTH_SHORT).show();
+
+        new Thread(() -> {
+            try {
+                URL downloadUrl = new URL(url);
+                HttpURLConnection conn = (HttpURLConnection) downloadUrl.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(30000);
+
+                String cookies = CookieManager.getInstance().getCookie(url);
+                if (cookies != null && !cookies.isEmpty()) {
+                    conn.setRequestProperty("Cookie", cookies);
+                }
+                conn.setRequestProperty("User-Agent", webView.getSettings().getUserAgentString());
+                conn.connect();
+
+                int code = conn.getResponseCode();
+                if (code >= 200 && code < 300) {
+                    String cd = conn.getHeaderField("Content-Disposition");
+                    String ct = conn.getContentType();
+
+                    String filename = "Finora_Statement.pdf";
+                    if (cd != null && cd.contains("filename=")) {
+                        filename = cd.split("filename=")[1].replace("\"", "").replace(";", "").trim();
+                    } else if (contentDisposition != null && contentDisposition.contains("filename=")) {
+                        filename = contentDisposition.split("filename=")[1].replace("\"", "").replace(";", "").trim();
+                    } else if (url.contains(".csv") || (ct != null && ct.contains("csv")) || (mimeType != null && mimeType.contains("csv"))) {
+                        filename = "Finora_Ledger.csv";
+                    }
+
+                    String resolvedMime = (filename.endsWith(".csv") || (ct != null && ct.contains("csv")) || (mimeType != null && mimeType.contains("csv"))) ? "text/csv" : "application/pdf";
+
+                    // Read bytes into memory
+                    InputStream in = conn.getInputStream();
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                    byte[] buffer = new byte[8192];
+                    int n;
+                    while ((n = in.read(buffer)) != -1) {
+                        baos.write(buffer, 0, n);
+                    }
+                    in.close();
+                    byte[] fileData = baos.toByteArray();
+
+                    // 1. Save to app-specific external files dir (always accessible and shareable via FileProvider)
+                    File exportDir = new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "Finora_Exports");
+                    if (!exportDir.exists()) exportDir.mkdirs();
+                    File localFile = new File(exportDir, filename);
+                    FileOutputStream fos = new FileOutputStream(localFile);
+                    fos.write(fileData);
+                    fos.flush();
+                    fos.close();
+
+                    // 2. Also save to public Downloads on device
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        try {
+                            ContentValues cv = new ContentValues();
+                            cv.put(MediaStore.MediaColumns.DISPLAY_NAME, filename);
+                            cv.put(MediaStore.MediaColumns.MIME_TYPE, resolvedMime);
+                            cv.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                            Uri publicUri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
+                            if (publicUri != null) {
+                                OutputStream pOut = getContentResolver().openOutputStream(publicUri);
+                                if (pOut != null) {
+                                    pOut.write(fileData);
+                                    pOut.flush();
+                                    pOut.close();
+                                }
+                            }
+                        } catch (Exception ex) {
+                            Log.w("FinoraDownload", "MediaStore save warning: ", ex);
+                        }
+                    } else {
+                        try {
+                            File pubDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                            if (pubDir.exists() || pubDir.mkdirs()) {
+                                File pubFile = new File(pubDir, filename);
+                                FileOutputStream pFos = new FileOutputStream(pubFile);
+                                pFos.write(fileData);
+                                pFos.flush();
+                                pFos.close();
+                            }
+                        } catch (Exception ex) {
+                            Log.w("FinoraDownload", "Public dir save warning: ", ex);
+                        }
+                    }
+
+                    final String finalFilename = filename;
+                    final File finalFile = localFile;
+                    final String finalMime = resolvedMime;
+
+                    runOnUiThread(() -> {
+                        Toast.makeText(MainActivity.this, "✅ " + finalFilename + " saved to Downloads!", Toast.LENGTH_LONG).show();
+                        openFileWithChooser(finalFile, finalMime);
+                    });
+                } else {
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "Download failed (Server code " + code + ")", Toast.LENGTH_SHORT).show());
+                }
+            } catch (Exception e) {
+                Log.e("FinoraDownload", "Error downloading export file: ", e);
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Export error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+            }
+        }).start();
+    }
+
+    private void openFileWithChooser(File file, String mimeType) {
+        try {
+            Uri contentUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", file);
+            Intent viewIntent = new Intent(Intent.ACTION_VIEW);
+            viewIntent.setDataAndType(contentUri, mimeType);
+            viewIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            Intent chooser = Intent.createChooser(viewIntent, "Open " + file.getName() + " with...");
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(chooser);
+        } catch (Exception e) {
+            Log.e("FinoraDownload", "Chooser error: ", e);
+            Toast.makeText(this, "Saved to Downloads: " + file.getName(), Toast.LENGTH_LONG).show();
+        }
     }
 }
