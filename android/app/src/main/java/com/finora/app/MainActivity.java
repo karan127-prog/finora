@@ -21,6 +21,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.EditText;
+import android.net.Uri;
 import android.widget.Toast;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -341,11 +342,26 @@ public class MainActivity extends AppCompatActivity {
             CharSequence extraSubject = intent.getCharSequenceExtra(Intent.EXTRA_SUBJECT);
             if (extraSubject != null) sharedText = extraSubject.toString();
         }
-        if (sharedText == null || sharedText.trim().isEmpty()) return;
 
-        ParsedReceipt receipt = parseSharedReceiptText(sharedText);
+        // Case 1: Plain text or receipt text is directly present
+        if (sharedText != null && !sharedText.trim().isEmpty()) {
+            processSharedTextAndPrefill(sharedText);
+            return;
+        }
+
+        // Case 2: Intent with image / stream or other share format
+        if (sharedText != null && !sharedText.trim().isEmpty()) {
+            processSharedTextAndPrefill(sharedText);
+        } else {
+            // Open quick add modal directly
+            openFallbackQuickAdd();
+        }
+    }
+
+    private void processSharedTextAndPrefill(String text) {
+        ParsedReceipt receipt = parseSharedReceiptText(text);
         if (receipt.amount <= 0 && (receipt.payee == null || receipt.payee.isEmpty())) {
-            Toast.makeText(this, "Could not extract payment details from shared text", Toast.LENGTH_SHORT).show();
+            openFallbackQuickAdd();
             return;
         }
 
@@ -375,6 +391,13 @@ public class MainActivity extends AppCompatActivity {
                 r.amount,
                 r.sourceApp
             );
+            webView.evaluateJavascript(js, null);
+        }, 1200);
+    }
+
+    private void openFallbackQuickAdd() {
+        webView.postDelayed(() -> {
+            String js = "if (window.openQuickAddModal) { window.openQuickAddModal('expense'); }";
             webView.evaluateJavascript(js, null);
         }, 1200);
     }
