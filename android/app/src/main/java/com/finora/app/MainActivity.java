@@ -22,6 +22,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.EditText;
 import android.net.Uri;
+import android.util.Log;
 import android.widget.Toast;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -299,27 +300,22 @@ public class MainActivity extends AppCompatActivity {
 
         // 2. Determine Income vs Expense (Accurate Direction Detection)
         // Check for incoming money (Income) markers:
-        boolean hasIncomeSignals = Pattern.compile("(?i)\\b(paid\\s+you|sent\\s+you|received\\s+from|money\\s+received|payment\\s+received\\s+from|received\\s+(?:rs\\.?|inr|₹)?\\s*[\\d,.]+|credited\\s+to|credited\\s+with|credited\\s+by|has\\s+been\\s+credited|a/c\\s+credited|account\\s+credited|cashback|refund|added\\s+to\\s+(?:your\\s+)?(?:account|wallet))\\b").matcher(raw).find();
+        boolean hasIncomeSignals = Pattern.compile("(?i)\\b(paid\\s+you|sent\\s+you|received\\s+from|money\\s+received|payment\\s+received|credited\\s+to|credited\\s+with|credited\\s+by|has\\s+been\\s+credited|a/c\\s+credited|account\\s+credited|cashback|refund|added\\s+to\\s+(?:your\\s+)?(?:account|wallet))\\b").matcher(raw).find();
 
         // Check for outgoing money (Expense) markers:
-        boolean hasExpenseSignals = Pattern.compile("(?i)\\b(paid\\s+to|payment\\s+to|transfer\\s+to|transferred\\s+to|sent\\s+to|money\\s+sent\\s+to|debited\\s+from|amount\\s+debited|account\\s+debited|a/c\\s+debited|debited\\s+by|debited\\s+for|deducted\\s+from|amount\\s+deducted|a/c\\s+deducted|deducted\\s+by|deducted\\s+for|bill\\s+payment|recharge\\s+for|purchase\\s+of|spent\\s+on)\\b").matcher(raw).find();
+        boolean hasExpenseSignals = Pattern.compile("(?i)\\b(paid\\s+to|payment\\s+to|transfer\\s+to|transferred\\s+to|sent\\s+to|money\\s+sent|debited\\s+from|amount\\s+debited|account\\s+debited|a/c\\s+debited|debited\\s+by|debited\\s+for|deducted\\s+from|amount\\s+deducted|a/c\\s+deducted|deducted\\s+by|deducted\\s+for|bill\\s+payment|recharge\\s+for|purchase\\s+of|spent\\s+on)\\b").matcher(raw).find();
 
         boolean isIncome = false;
-        // Priority 1: Clear outgoing debited/deducted markers always mean Expense
-        if (Pattern.compile("(?i)\\b(debited\\s+from|deducted\\s+from|a/c\\s+debited|account\\s+debited|amount\\s+debited|amount\\s+deducted|paid\\s+to|payment\\s+to)\\b").matcher(raw).find()) {
-            isIncome = false;
-        }
-        // Priority 2: Clear incoming credited/received markers mean Income
-        else if (Pattern.compile("(?i)\\b(credited\\s+to|a/c\\s+credited|account\\s+credited|paid\\s+you|sent\\s+you|received\\s+from|payment\\s+received\\s+from)\\b").matcher(raw).find()) {
+        if (hasIncomeSignals && !hasExpenseSignals) {
             isIncome = true;
-        }
-        // Priority 3: General signals
-        else if (hasIncomeSignals && !hasExpenseSignals) {
-            isIncome = true;
-        } else if (!hasIncomeSignals && hasExpenseSignals) {
+        } else if (hasExpenseSignals && !hasIncomeSignals) {
             isIncome = false;
         } else if (hasIncomeSignals && hasExpenseSignals) {
-            isIncome = Pattern.compile("(?i)\\b(credited|received)\\b").matcher(raw).find();
+            if (Pattern.compile("(?i)\\b(debited|deducted|paid\\s+to|transfer\\s+to|transferred\\s+to|sent\\s+to)\\b").matcher(raw).find()) {
+                isIncome = false;
+            } else {
+                isIncome = true;
+            }
         } else {
             isIncome = Pattern.compile("(?i)\\b(received|credited)\\b").matcher(raw).find();
         }
@@ -327,82 +323,87 @@ public class MainActivity extends AppCompatActivity {
 
         String[] lines = raw.split("\\r?\\n");
 
+        // Exclude lines mentioning only remaining balance from amount search
+        StringBuilder nonBalTextBuilder = new StringBuilder();
+        for (String l : lines) {
+            String lc = l.trim();
+            if (Pattern.compile("(?i)\\b(bal|balance|avail|avl|acct\\s+bal|a/c\\s+bal)\\b").matcher(lc).find() &&
+                !Pattern.compile("(?i)\\b(debited|deducted|paid|credited)\\b").matcher(lc).find()) {
+                continue;
+            }
+            nonBalTextBuilder.append(lc).append("\n");
+        }
+        String filteredText = nonBalTextBuilder.toString();
+
         // 3. Extract Amount (Robust Multi-Stage Deducted & UPI Parser)
-        // Pattern 1: Explicit Debit / Deducted Keywords with amount
-        Pattern pDebit = Pattern.compile("(?:debited\\s+(?:by|for|with|of)?|deducted\\s+(?:by|for|with|of|from\\s+account\\s+for)?|amount\\s+(?:debited|deducted|paid)\\s*(?:is|of)?:?|amt\\s+(?:debited|deducted):?)[\\s\\n:]*(?:rs\\.?|inr|₹)?[\\s\\n]*([0-9,]+(?:\\.[0-9]{1,2})?)", Pattern.CASE_INSENSITIVE);
-        Matcher mDebit = pDebit.matcher(raw);
+        // Method 1: Explicit debited / deducted / paid / transfer / received keywords with amount
+        Pattern pDebit = Pattern.compile("(?i)(?:debited\\s*(?:by|for|with|of)?|deducted\\s*(?:by|for|with|of)?|amount\\s*(?:debited|deducted|paid):?|paid|transfer\\s*(?:of)?|received|credited)[\\s\\n:]*(?:rs\\.?|inr|₹|[\\?\\*=\\u20B9])?[\\s\\n]*([0-9,]+(?:\\.[0-9]{1,2})?)");
+        Matcher mDebit = pDebit.matcher(filteredText);
         if (mDebit.find()) {
             try {
-                res.amount = Double.parseDouble(mDebit.group(1).replace(",", ""));
+                double val = Double.parseDouble(mDebit.group(1).replace(",", ""));
+                if (val > 0 && val < 10000000) res.amount = val;
             } catch (Exception ignored) {}
         }
 
-        // Pattern 2: Suffix Debit / Deduction (e.g. "450.00 deducted", "₹450 debited")
+        // Method 2: Currency symbol or OCR noise (? or * or ₹ or Rs or \u20B9) right next to or above digits
         if (res.amount <= 0) {
-            Pattern pSuffix = Pattern.compile("(?:rs\\.?|inr|₹)?[\\s\\n]*([0-9,]+(?:\\.[0-9]{1,2})?)[\\s\\n]*(?:debited|deducted|spent|paid)", Pattern.CASE_INSENSITIVE);
-            Matcher mSuffix = pSuffix.matcher(raw);
-            if (mSuffix.find()) {
+            Pattern pCurr = Pattern.compile("(?:rs\\.?|inr|₹|[\\u20B9\\?\\*])[ \\t\\r\\n]*([0-9,]+(?:\\.[0-9]{1,2})?)", Pattern.CASE_INSENSITIVE);
+            Matcher mCurr = pCurr.matcher(filteredText);
+            if (mCurr.find()) {
                 try {
-                    res.amount = Double.parseDouble(mSuffix.group(1).replace(",", ""));
+                    double val = Double.parseDouble(mCurr.group(1).replace(",", ""));
+                    if (val > 0 && val < 10000000) res.amount = val;
                 } catch (Exception ignored) {}
             }
         }
 
-        // Pattern 3: Currency Symbol followed by amount (excluding remaining balance lines)
+        // Method 3: Digits followed by currency symbol or debit keyword
+        if (res.amount <= 0) {
+            Pattern pCurrTrail = Pattern.compile("([0-9,]+(?:\\.[0-9]{1,2})?)[ \\t\\r\\n]*(?:rs\\.?|inr|₹|[\\u20B9]|debited|deducted|spent|paid)", Pattern.CASE_INSENSITIVE);
+            Matcher mCurrTrail = pCurrTrail.matcher(filteredText);
+            if (mCurrTrail.find()) {
+                try {
+                    double val = Double.parseDouble(mCurrTrail.group(1).replace(",", ""));
+                    if (val > 0 && val < 10000000) res.amount = val;
+                } catch (Exception ignored) {}
+            }
+        }
+
+        // Method 4: Standalone line with number (like '500' or '1,250.00')
         if (res.amount <= 0) {
             for (String l : lines) {
                 String lc = l.trim();
-                if (lc.matches("(?i).*\\b(bal|balance|avail|avl|acct|a/c)\\b.*") && !lc.matches("(?i).*\\b(debited|deducted|paid|credited)\\b.*")) {
+                if (Pattern.compile("(?i)\\b(bal|balance|avail|avl|acct|a/c)\\b").matcher(lc).find()) {
                     continue;
                 }
-                Matcher mCurr = Pattern.compile("(?:rs\\.?|inr|₹)[\\s\\n]*([0-9,]+(?:\\.[0-9]{1,2})?)", Pattern.CASE_INSENSITIVE).matcher(lc);
-                if (mCurr.find()) {
-                    try {
-                        double parsed = Double.parseDouble(mCurr.group(1).replace(",", ""));
-                        if (parsed > 0 && parsed < 10000000) {
-                            res.amount = parsed;
-                            break;
-                        }
-                    } catch (Exception ignored) {}
-                }
-            }
-        }
-
-        // Pattern 4: Amount followed by currency symbol (500 ₹, 450.00 Rs)
-        if (res.amount <= 0) {
-            Pattern pCurrTrail = Pattern.compile("([0-9,]+(?:\\.[0-9]{1,2})?)[\\s\\n]*(?:rs\\.?|inr|₹)", Pattern.CASE_INSENSITIVE);
-            Matcher mCurrTrail = pCurrTrail.matcher(raw);
-            if (mCurrTrail.find()) {
-                try {
-                    res.amount = Double.parseDouble(mCurrTrail.group(1).replace(",", ""));
-                } catch (Exception ignored) {}
-            }
-        }
-
-        // Pattern 5: Keywords 'payment of', 'paid', 'sent', 'transfer of'
-        if (res.amount <= 0) {
-            Pattern pPaid = Pattern.compile("(?:payment\\s+(?:of)?|paid|sent|transfer\\s+(?:of)?|amount:?)[\\s\\n:]*(?:rs\\.?|inr|₹)?[\\s\\n]*([0-9,]+(?:\\.[0-9]{1,2})?)", Pattern.CASE_INSENSITIVE);
-            Matcher mPaid = pPaid.matcher(raw);
-            if (mPaid.find()) {
-                try {
-                    res.amount = Double.parseDouble(mPaid.group(1).replace(",", ""));
-                } catch (Exception ignored) {}
-            }
-        }
-
-        // Pattern 6: Line with standalone number
-        if (res.amount <= 0) {
-            for (String l : lines) {
-                String clean = l.trim().replaceAll("(?i)^[₹RsINR\\s:]+", "").replaceAll("(?i)[₹RsINR\\s]+$", "");
+                String clean = lc.replaceAll("^[^0-9]+", "").replaceAll("[^0-9.]+$", "");
                 if (clean.matches("^[0-9,]+(\\.[0-9]{1,2})?$")) {
                     try {
                         double parsed = Double.parseDouble(clean.replace(",", ""));
                         if (parsed > 0 && parsed < 10000000) {
+                            if (parsed >= 2023 && parsed <= 2030 && !clean.contains(".")) {
+                                continue;
+                            }
                             res.amount = parsed;
                             break;
                         }
                     } catch (Exception ignored) {}
                 }
+            }
+        }
+
+        // Method 5: Any standard 2-decimal currency amount in filtered text (e.g. 500.00)
+        if (res.amount <= 0) {
+            Matcher mDec = Pattern.compile("\\b([0-9,]+\\.[0-9]{2})\\b").matcher(filteredText);
+            while (mDec.find()) {
+                try {
+                    double parsed = Double.parseDouble(mDec.group(1).replace(",", ""));
+                    if (parsed > 0 && parsed < 10000000) {
+                        res.amount = parsed;
+                        break;
+                    }
+                } catch (Exception ignored) {}
             }
         }
 
@@ -518,20 +519,24 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+        // Clean up unwanted prefixes and trailing tags
+        detectedName = detectedName.replaceAll("(?i)^(paid\\s+to|payment\\s+to|transfer\\s+to|transferred\\s+to|sent\\s+to|received\\s+from|from|to)\\s+", "").trim();
+        detectedName = detectedName.replaceAll("(?i)\\b(bal|balance|avl|avail|using|on|via|account|phonepe|gpay|paytm|completed|successful|debited|deducted)\\b.*", "").trim();
+        detectedName = detectedName.replaceAll("^[\\s.,:-]+|[\\s.,:-]+$", "");
+
         if (detectedName.isEmpty()) {
             detectedName = isIncome ? "UPI Sender" : "UPI Merchant";
         }
 
-        // Clean up unwanted trailing tags and balance strings
-        detectedName = detectedName.replaceAll("(?i)\\b(bal|balance|avl|avail|using|on|via|account|phonepe|gpay|paytm|completed|successful|debited|deducted)\\b.*", "").trim();
-        detectedName = detectedName.replaceAll("^[\\s.,:-]+|[\\s.,:-]+$", "");
-
         // Format user-facing Title clearly indicating direction ("Paid to X" or "Received from Y")
         if (isIncome) {
-            res.payee = detectedName.toLowerCase().startsWith("received from") ? detectedName : "Received from " + detectedName;
+            res.payee = "Received from " + detectedName;
         } else {
-            res.payee = detectedName.toLowerCase().startsWith("paid to") ? detectedName : "Paid to " + detectedName;
+            res.payee = "Paid to " + detectedName;
         }
+
+        Log.i("FinoraOCR", "Raw OCR:\n" + raw);
+        Log.i("FinoraOCR", "Extracted -> type=" + res.type + ", amount=" + res.amount + ", payee=" + res.payee);
 
         return res;
     }
@@ -591,20 +596,24 @@ public class MainActivity extends AppCompatActivity {
 
     private void processSharedTextAndPrefill(String text) {
         ParsedReceipt receipt = parseSharedReceiptText(text);
-        if (receipt.amount <= 0 && (receipt.payee == null || receipt.payee.isEmpty())) {
+        if (receipt.amount <= 0 && (receipt.payee == null || receipt.payee.isEmpty() || receipt.payee.contains("UPI Merchant") || receipt.payee.contains("UPI Sender"))) {
             openFallbackQuickAdd();
             return;
         }
 
         String prefix = "income".equals(receipt.type) ? "+" : "-";
-        Toast.makeText(this, "⚡ FINORA: " + receipt.payee + " (" + prefix + "₹" + String.format(Locale.US, "%.2f", receipt.amount) + ")", Toast.LENGTH_LONG).show();
+        String toastMsg = receipt.amount > 0 ?
+            "⚡ FINORA: " + receipt.payee + " (" + prefix + "₹" + String.format(Locale.US, "%.2f", receipt.amount) + ")" :
+            "⚡ FINORA: " + receipt.payee;
+        Toast.makeText(this, toastMsg, Toast.LENGTH_LONG).show();
 
         final ParsedReceipt r = receipt;
+        final String formattedAmount = r.amount > 0 ? String.format(Locale.US, "%.2f", r.amount) : "";
         final String js = String.format(Locale.US,
             "(function() { " +
             "  function fill() { " +
             "    if (window.populateQuickAddModal) { " +
-            "      window.populateQuickAddModal('%s', %.2f, '%s', 'Shared via %s'); " +
+            "      window.populateQuickAddModal('%s', '%s', '%s', 'Shared via %s'); " +
             "      return true; " +
             "    } else if (window.openQuickAddModal) { " +
             "      window.openQuickAddModal('%s'); " +
@@ -612,7 +621,7 @@ public class MainActivity extends AppCompatActivity {
             "      const a = document.querySelector('#quickAddModal input[name=\"amount\"]'); " +
             "      const d = document.querySelector('#quickAddModal input[name=\"description\"]'); " +
             "      if (t) { t.value = '%s'; t.dispatchEvent(new Event('input', {bubbles:true})); } " +
-            "      if (a) { a.value = '%.2f'; a.dispatchEvent(new Event('input', {bubbles:true})); } " +
+            "      if (a && '%s' !== '') { a.value = '%s'; a.dispatchEvent(new Event('input', {bubbles:true})); } " +
             "      if (d) { d.value = 'Shared via %s'; d.dispatchEvent(new Event('input', {bubbles:true})); } " +
             "      return true; " +
             "    } " +
@@ -624,12 +633,13 @@ public class MainActivity extends AppCompatActivity {
             "  } " +
             "})();",
             r.type,
-            r.amount,
+            formattedAmount,
             r.payee.replace("'", "\\'"),
             r.sourceApp,
             r.type,
             r.payee.replace("'", "\\'"),
-            r.amount,
+            formattedAmount,
+            formattedAmount,
             r.sourceApp
         );
 

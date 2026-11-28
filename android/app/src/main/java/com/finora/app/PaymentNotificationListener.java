@@ -113,7 +113,7 @@ public class PaymentNotificationListener extends NotificationListenerService {
         boolean hasIncomeSignals = Pattern.compile("(?i)\\b(paid\\s+you|sent\\s+you|received\\s+from|money\\s+received|payment\\s+received\\s+from|received\\s+(?:rs\\.?|inr|₹)?\\s*[\\d,.]+|credited\\s+to|credited\\s+with|credited\\s+by|has\\s+been\\s+credited|a/c\\s+credited|account\\s+credited|cashback|refund|added\\s+to\\s+(?:your\\s+)?(?:account|wallet)|deposit)\\b").matcher(fullContent).find();
         boolean hasExpenseSignals = Pattern.compile("(?i)\\b(paid\\s+to|payment\\s+to|transfer\\s+to|transferred\\s+to|sent\\s+to|money\\s+sent\\s+to|debited\\s+from|amount\\s+debited|account\\s+debited|a/c\\s+debited|debited\\s+by|debited\\s+for|deducted\\s+from|amount\\s+deducted|a/c\\s+deducted|deducted\\s+by|deducted\\s+for|bill\\s+payment|recharge\\s+for|purchase\\s+of|spent\\s+on)\\b").matcher(fullContent).find();
 
-        boolean isDebitFrom = Pattern.compile("(?i)\\b(debited\\s+from|deducted\\s+from|a/c\\s+debited|account\\s+debited|amount\\s+debited|amount\\s+deducted|paid\\s+to|payment\\s+to)\\b").matcher(fullContent).find();
+        boolean isDebitFrom = Pattern.compile("(?i)\\b(debited\\s+from|deducted\\s+from|a/c\\s+debited|account\\s+debited|amount\\s+debited|amount\\s+deducted|paid\\s+to|payment\\s+to|transfer\\s+to|transferred\\s+to|sent\\s+to)\\b").matcher(fullContent).find();
         boolean isCreditTo = Pattern.compile("(?i)\\b(credited\\s+to|a/c\\s+credited|account\\s+credited|paid\\s+you|sent\\s+you|received\\s+from|payment\\s+received\\s+from)\\b").matcher(fullContent).find();
 
         if (!hasIncomeSignals && !hasExpenseSignals && !isDebitFrom && !isCreditTo) {
