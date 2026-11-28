@@ -493,6 +493,47 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+        // Rule F: Any standard 2-decimal currency amount (e.g. 500.00, 1250.50)
+        if (detectedAmount <= 0) {
+            Matcher mDec = Pattern.compile("\\b([0-9,]+\\.[0-9]{2})\\b").matcher(raw);
+            while (mDec.find()) {
+                try {
+                    double val = Double.parseDouble(mDec.group(1).replace(",", ""));
+                    int start = Math.max(0, mDec.start() - 20);
+                    String prefix = raw.substring(start, mDec.start());
+                    if (!Pattern.compile("(?i)\\b(bal|balance|avail|avl)\\b").matcher(prefix).find() && val > 0 && val < 10000000) {
+                        detectedAmount = val;
+                        break;
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        // Rule G: Standalone number on a clean line (e.g. '500')
+        if (detectedAmount <= 0) {
+            for (String l : lines) {
+                if (Pattern.compile("(?i)(?:bal|balance|avail|avl|utr|txn|id|ref|date|time|pm|am|\\*\\*|xxxx|debited\\s+from|credited\\s+to|a/c|account|phonepe|gpay|bank)").matcher(l).find()) {
+                    continue;
+                }
+                String clean = l.replaceAll("^[^0-9]+", "").replaceAll("[^0-9.]+$", "").trim();
+                if (clean.matches("^[0-9,]+(\\.[0-9]{1,2})?$")) {
+                    try {
+                        double val = Double.parseDouble(clean.replace(",", ""));
+                        if (val >= 2023 && val <= 2030 && !clean.contains(".")) {
+                            continue;
+                        }
+                        if (clean.replace(",", "").split("\\.")[0].length() > 7) {
+                            continue;
+                        }
+                        if (val > 0 && val < 10000000) {
+                            detectedAmount = val;
+                            break;
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
         res.amount = detectedAmount;
 
         Log.i("FinoraOCR", "Raw OCR:\n" + raw);
@@ -508,13 +549,7 @@ public class MainActivity extends AppCompatActivity {
             if (extraSubject != null) sharedText = extraSubject.toString();
         }
 
-        // Case 1: Plain text or receipt text is directly present
-        if (sharedText != null && !sharedText.trim().isEmpty()) {
-            processSharedTextAndPrefill(sharedText);
-            return;
-        }
-
-        // Case 2: Intent with image / stream or other share format
+        // Priority 1: Check for Image URI first! (Receipt screenshots from PhonePe, GPay, Gallery)
         Uri imageUri = null;
         if (intent.hasExtra(Intent.EXTRA_STREAM)) {
             try {
@@ -528,6 +563,8 @@ public class MainActivity extends AppCompatActivity {
             imageUri = intent.getData();
         }
 
+        final String captionText = sharedText;
+
         if (imageUri != null) {
             try {
                 Toast.makeText(this, "⚡ Scanning receipt image...", Toast.LENGTH_SHORT).show();
@@ -536,21 +573,40 @@ public class MainActivity extends AppCompatActivity {
                 recognizer.process(image)
                     .addOnSuccessListener(visionText -> {
                         String ocrText = visionText.getText();
-                        if (ocrText != null && !ocrText.trim().isEmpty()) {
-                            processSharedTextAndPrefill(ocrText);
+                        String combined = (ocrText != null ? ocrText : "") + "\n" + (captionText != null ? captionText : "");
+                        if (!combined.trim().isEmpty()) {
+                            processSharedTextAndPrefill(combined);
                         } else {
                             openFallbackQuickAdd();
                         }
                     })
-                    .addOnFailureListener(e -> openFallbackQuickAdd());
+                    .addOnFailureListener(e -> {
+                        Log.e("FinoraOCR", "OCR processing failed: ", e);
+                        if (captionText != null && !captionText.trim().isEmpty()) {
+                            processSharedTextAndPrefill(captionText);
+                        } else {
+                            openFallbackQuickAdd();
+                        }
+                    });
                 return;
             } catch (Exception e) {
+                Log.e("FinoraOCR", "Failed to load InputImage from uri: " + imageUri, e);
+                if (captionText != null && !captionText.trim().isEmpty()) {
+                    processSharedTextAndPrefill(captionText);
+                    return;
+                }
                 openFallbackQuickAdd();
                 return;
             }
         }
 
-        // Fallback if no text and no image Uri
+        // Priority 2: Pure plain text without any image (e.g. copied SMS or text share)
+        if (captionText != null && !captionText.trim().isEmpty()) {
+            processSharedTextAndPrefill(captionText);
+            return;
+        }
+
+        // Fallback
         openFallbackQuickAdd();
     }
 
