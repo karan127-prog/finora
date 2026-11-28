@@ -28,6 +28,11 @@ import java.util.regex.Pattern;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.text.Text;
+import com.google.mlkit.vision.text.TextRecognition;
+import com.google.mlkit.vision.text.TextRecognizer;
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -271,7 +276,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // 3. Extract Amount
-        Pattern p1 = Pattern.compile("(?:rs\\.?|inr|₹|debited\\s+by|debited\\s+with|credited\\s+by)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+        Pattern p1 = Pattern.compile("(?:rs\\.?|inr|₹|debited\\s+by|debited\\s+with|credited\\s+by)[\\s\\n]*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
         Matcher m1 = p1.matcher(raw);
         if (m1.find()) {
             try {
@@ -280,7 +285,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (res.amount <= 0) {
-            Pattern p2 = Pattern.compile("([\\d,]+(?:\\.\\d{1,2})?)\\s*(?:rs\\.?|inr|₹)", Pattern.CASE_INSENSITIVE);
+            Pattern p2 = Pattern.compile("([\\d,]+(?:\\.\\d{1,2})?)[\\s\\n]*(?:rs\\.?|inr|₹)", Pattern.CASE_INSENSITIVE);
             Matcher m2 = p2.matcher(raw);
             if (m2.find()) {
                 try {
@@ -290,7 +295,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (res.amount <= 0) {
-            Pattern p3 = Pattern.compile("(?:paid|sent|received|payment\\s+of)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+            Pattern p3 = Pattern.compile("(?:paid|sent|received|payment\\s+of)[\\s\\n]*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
             Matcher m3 = p3.matcher(raw);
             if (m3.find()) {
                 try {
@@ -301,7 +306,7 @@ public class MainActivity extends AppCompatActivity {
 
         // 4. Extract Payee / Merchant
         if (isIncome) {
-            Pattern pPayeeInc = Pattern.compile("(?:from|by|received\\s+from)\\s+([A-Za-z0-9\\s&'.-]{2,35}?)(?:\\s+(?:using|on\\s+phonepe|on\\s+gpay|on\\s+paytm|on\\s+google|via|ref|tx|transaction|date|http|\\.)|$)", Pattern.CASE_INSENSITIVE);
+            Pattern pPayeeInc = Pattern.compile("(?:from|by|received\\s+from)[\\s\\n]+([A-Za-z0-9\\s&'.-]{2,35}?)(?:[\\s\\n]+(?:using|on\\s+phonepe|on\\s+gpay|on\\s+paytm|on\\s+google|via|ref|tx|transaction|date|http|\\.)|$)", Pattern.CASE_INSENSITIVE);
             Matcher mInc = pPayeeInc.matcher(raw);
             if (mInc.find()) {
                 String p = mInc.group(1).trim();
@@ -310,7 +315,7 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             if (res.payee.isEmpty()) {
-                Pattern sentYou = Pattern.compile("([A-Za-z0-9\\s&'.-]{2,25})\\s+sent\\s+you", Pattern.CASE_INSENSITIVE);
+                Pattern sentYou = Pattern.compile("([A-Za-z0-9\\s&'.-]{2,25})[\\s\\n]+sent\\s+you", Pattern.CASE_INSENSITIVE);
                 Matcher mSent = sentYou.matcher(raw);
                 if (mSent.find()) {
                     res.payee = mSent.group(1).trim();
@@ -320,16 +325,40 @@ public class MainActivity extends AppCompatActivity {
                 res.payee = "Income Transfer";
             }
         } else {
-            Pattern pPayeeExp = Pattern.compile("(?:paid\\s+to|paid\\s+successfully\\s+to|to|at|sent\\s+to|trf\\s+to)\\s+([A-Za-z0-9\\s&'.-]{2,35}?)(?:\\s+(?:using|on\\s+phonepe|on\\s+gpay|on\\s+paytm|on\\s+google|via|was\\s+successful|successful|ref|upi|tx|transaction|date|http|₹|rs|\\.)|$)", Pattern.CASE_INSENSITIVE);
-            Matcher mExp = pPayeeExp.matcher(raw);
-            if (mExp.find()) {
-                String p = mExp.group(1).trim();
+            Pattern pPaidToLine = Pattern.compile("(?:paid\\s+to|payment\\s+to|transfer\\s+to|sent\\s+to|to:?)[\\s\\n]+([A-Za-z0-9\\s&'.-]{2,35}?)(?:\\r?\\n|$)", Pattern.CASE_INSENSITIVE);
+            Matcher mLine = pPaidToLine.matcher(raw);
+            if (mLine.find()) {
+                String p = mLine.group(1).trim();
                 if (!p.equalsIgnoreCase("you") && !p.equalsIgnoreCase("account") && p.length() > 2) {
                     res.payee = p;
                 }
             }
             if (res.payee.isEmpty()) {
-                res.payee = "UPI Merchant";
+                Pattern pPayeeExp = Pattern.compile("(?:paid\\s+to|paid\\s+successfully\\s+to|to|at|sent\\s+to|trf\\s+to)[\\s\\n]+([A-Za-z0-9\\s&'.-]{2,35}?)(?:[\\s\\n]+(?:using|on\\s+phonepe|on\\s+gpay|on\\s+paytm|on\\s+google|via|was\\s+successful|successful|ref|upi|tx|transaction|date|http|₹|rs|\\.)|$)", Pattern.CASE_INSENSITIVE);
+                Matcher mExp = pPayeeExp.matcher(raw);
+                if (mExp.find()) {
+                    String p = mExp.group(1).trim();
+                    if (!p.equalsIgnoreCase("you") && !p.equalsIgnoreCase("account") && p.length() > 2) {
+                        res.payee = p;
+                    }
+                }
+            }
+            if (res.payee.isEmpty()) {
+                Pattern pBankName = Pattern.compile("(?:banking\\s+name:?|merchant:?)[\\s\\n]+([A-Za-z0-9\\s&'.-]{2,35})", Pattern.CASE_INSENSITIVE);
+                Matcher mBank = pBankName.matcher(raw);
+                if (mBank.find()) {
+                    res.payee = mBank.group(1).trim();
+                }
+            }
+            if (res.payee.isEmpty()) {
+                res.payee = "UPI Payment";
+            }
+        }
+
+        if (res.payee != null) {
+            res.payee = res.payee.replaceAll("(?i)\\b(using|on|via|account|phonepe|gpay|paytm)\\b.*", "").trim();
+            if (res.payee.isEmpty()) {
+                res.payee = isIncome ? "Income Transfer" : "UPI Payment";
             }
         }
 
@@ -350,12 +379,45 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // Case 2: Intent with image / stream or other share format
-        if (sharedText != null && !sharedText.trim().isEmpty()) {
-            processSharedTextAndPrefill(sharedText);
-        } else {
-            // Open quick add modal directly
-            openFallbackQuickAdd();
+        Uri imageUri = null;
+        if (intent.hasExtra(Intent.EXTRA_STREAM)) {
+            try {
+                imageUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            } catch (Exception ignored) {}
         }
+        if (imageUri == null && intent.getClipData() != null && intent.getClipData().getItemCount() > 0) {
+            imageUri = intent.getClipData().getItemAt(0).getUri();
+        }
+        if (imageUri == null) {
+            imageUri = intent.getData();
+        }
+
+        if (imageUri != null) {
+            try {
+                Toast.makeText(this, "⚡ Scanning receipt image...", Toast.LENGTH_SHORT).show();
+                InputImage image = InputImage.fromFilePath(this, imageUri);
+                TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+                recognizer.process(image)
+                    .addOnSuccessListener(visionText -> {
+                        String ocrText = visionText.getText();
+                        if (ocrText != null && !ocrText.trim().isEmpty()) {
+                            processSharedTextAndPrefill(ocrText);
+                        } else {
+                            openFallbackQuickAdd();
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        openFallbackQuickAdd();
+                    });
+                return;
+            } catch (Exception e) {
+                openFallbackQuickAdd();
+                return;
+            }
+        }
+
+        // Fallback if no text and no image Uri
+        openFallbackQuickAdd();
     }
 
     private void processSharedTextAndPrefill(String text) {
