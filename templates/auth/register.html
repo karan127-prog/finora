@@ -3,32 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Account | FINORA - Your Money. Your Control.</title>
+    <title>Create Account | FINORA - Personal Wealth Intelligence</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
     <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
         body {
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            background: radial-gradient(circle at 10% 20%, #E6EFF6 0%, #F3F7FA 90%);
-            padding: 24px;
+            background: #080E17;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(0, 229, 153, 0.12) 0%, transparent 60%),
+                radial-gradient(circle at 0% 100%, rgba(16, 185, 129, 0.05) 0%, transparent 40%);
+            padding: 24px 16px;
+            font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #F8FAFC;
+        }
+        .auth-container {
+            width: 100%;
+            max-width: 460px;
         }
         .auth-card {
-            background-color: #FFFFFF;
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            width: 100%;
-            max-width: 480px;
-            padding: 40px;
-            box-shadow: 0 20px 40px -10px rgba(52, 68, 84, 0.08);
+            background-color: #0E1724;
+            border: 1px solid #1B2B3E;
+            border-radius: 20px;
+            padding: 36px 32px;
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6), 0 0 1px 1px rgba(255, 255, 255, 0.04);
+            position: relative;
+            overflow: hidden;
+        }
+        .auth-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00E599, transparent);
         }
         .auth-brand {
             display: flex;
@@ -37,103 +60,185 @@
             margin-bottom: 24px;
             text-align: center;
         }
-        .auth-brand .brand-logo-icon {
-            width: 48px;
-            height: 48px;
+        .auth-logo-wrap {
+            width: 56px;
+            height: 56px;
             border-radius: 14px;
-            margin-bottom: 10px;
-            box-shadow: 0 8px 16px rgba(120, 155, 184, 0.28);
+            margin-bottom: 12px;
+            box-shadow: 0 0 25px rgba(0, 229, 153, 0.35);
+            border: 1px solid rgba(0, 229, 153, 0.3);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #080E17;
+        }
+        .auth-logo-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
         .auth-title {
-            font-size: 1.45rem;
+            font-size: 1.4rem;
             font-weight: 700;
-            color: var(--text-primary);
+            color: #FFFFFF;
+            letter-spacing: -0.02em;
         }
         .auth-subtitle {
-            font-size: 0.85rem;
-            color: var(--secondary);
+            font-size: 0.82rem;
+            color: #94A3B8;
             margin-top: 4px;
         }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-label {
+            display: block;
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: #CBD5E1;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .form-control, .form-select {
+            width: 100%;
+            padding: 11px 14px;
+            border-radius: 10px;
+            border: 1px solid #1C2D42;
+            background-color: #080F1A;
+            font-size: 0.88rem;
+            color: #F8FAFC;
+            transition: all 0.2s ease;
+        }
+        .form-control:focus, .form-select:focus {
+            outline: none;
+            border-color: #00E599;
+            box-shadow: 0 0 0 3px rgba(0, 229, 153, 0.15);
+            background-color: #0B1320;
+        }
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            background: #00E599;
+            color: #050B12;
+            font-size: 0.92rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 16px rgba(0, 229, 153, 0.28);
+            margin-top: 6px;
+        }
+        .btn-submit:hover {
+            background: #00CC88;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0, 229, 153, 0.35);
+        }
+        .auth-footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.84rem;
+            color: #94A3B8;
+        }
+        .auth-footer a {
+            color: #00E599;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .auth-footer a:hover {
+            text-decoration: underline;
+        }
+        .auth-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
         @media (max-width: 480px) {
-            body {
-                padding: 14px;
-            }
             .auth-card {
-                padding: 24px 18px;
-                border-radius: 18px;
+                padding: 26px 18px;
+                border-radius: 16px;
             }
             .auth-title {
-                font-size: 1.35rem !important;
+                font-size: 1.25rem;
             }
             .auth-grid-2 {
-                grid-template-columns: 1fr !important;
-                gap: 0 !important;
+                grid-template-columns: 1fr;
+                gap: 0;
             }
         }
     </style>
 </head>
 <body>
-    <div class="auth-card">
-        <div class="auth-brand">
-            <div class="brand-logo-icon">
-                <i data-lucide="sparkles" style="width: 24px; height: 24px;"></i>
-            </div>
-            <h1 class="auth-title">Create Your Finora Account</h1>
-            <p class="auth-subtitle">Your Money. Your Control.</p>
-        </div>
-
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div style="margin-bottom: 18px;">
-                    {% for category, message in messages %}
-                        <div class="flash-alert {{ category }}" style="font-size: 0.82rem; padding: 10px 14px;">
-                            <span>{{ message }}</span>
-                        </div>
-                    {% endfor %}
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-brand">
+                <div class="auth-logo-wrap">
+                    <img src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="FINORA">
                 </div>
-            {% endif %}
-        {% endwith %}
-
-        <form action="{{ url_for('auth.register') }}" method="POST">
-            <div class="form-group">
-                <label class="form-label">Full Name</label>
-                <input type="text" name="name" class="form-control" placeholder="Aarav Sharma" required>
+                <h1 class="auth-title">Create Account</h1>
+                <p class="auth-subtitle">Join FINORA and take control of your money</p>
             </div>
 
-            <div class="form-group">
-                <label class="form-label">Email Address</label>
-                <input type="email" name="email" class="form-control" placeholder="aarav@domain.com" required>
-            </div>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div style="margin-bottom: 16px;">
+                        {% for category, message in messages %}
+                            <div class="flash-alert {{ category }}" style="font-size: 0.82rem; padding: 10px 14px; background: rgba(0, 229, 153, 0.1); border: 1px solid rgba(0, 229, 153, 0.3); color: #00E599; border-radius: 8px;">
+                                <span>{{ message }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
 
-            <div class="form-group">
-                <label class="form-label">Preferred Currency</label>
-                <select name="currency" class="form-select">
-                    <option value="INR" selected>Indian Rupee (₹ - INR)</option>
-                    <option value="USD">US Dollar ($ - USD)</option>
-                    <option value="EUR">Euro (€ - EUR)</option>
-                    <option value="GBP">British Pound (£ - GBP)</option>
-                </select>
-            </div>
-
-            <div class="auth-grid-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <form action="{{ url_for('auth.register') }}" method="POST">
                 <div class="form-group">
-                    <label class="form-label">Password</label>
-                    <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                    <label class="form-label">Full Name</label>
+                    <input type="text" name="name" class="form-control" placeholder="Aarav Sharma" required>
                 </div>
+
                 <div class="form-group">
-                    <label class="form-label">Confirm Password</label>
-                    <input type="password" name="confirm_password" class="form-control" placeholder="••••••••" required>
+                    <label class="form-label">Email Address</label>
+                    <input type="email" name="email" class="form-control" placeholder="name@company.com" required>
                 </div>
+
+                <div class="auth-grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Currency</label>
+                        <select name="currency_symbol" class="form-select">
+                            <option value="₹" selected>₹ INR (Rupee)</option>
+                            <option value="$">$ USD (Dollar)</option>
+                            <option value="€">€ EUR (Euro)</option>
+                            <option value="£">£ GBP (Pound)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Initial Monthly Income (Optional)</label>
+                    <input type="number" step="0.01" name="monthly_income" class="form-control" placeholder="0.00">
+                </div>
+
+                <button type="submit" class="btn-submit">
+                    <span>Create Your FINORA Account</span>
+                    <i data-lucide="arrow-right" style="width: 16px; height: 16px;"></i>
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                Already have an account? <a href="{{ url_for('auth.login') }}">Sign In</a>
             </div>
-
-            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; margin-top: 10px;">
-                <span>Create Account</span>
-                <i data-lucide="arrow-right" style="width: 16px; height: 16px;"></i>
-            </button>
-        </form>
-
-        <div style="text-align: center; margin-top: 24px; font-size: 0.84rem; color: var(--text-secondary);">
-            Already have an account? <a href="{{ url_for('auth.login') }}" style="font-weight: 600; color: var(--secondary);">Sign in</a>
         </div>
     </div>
 

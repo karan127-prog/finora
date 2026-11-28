@@ -137,17 +137,17 @@
 
 .kpi-pct.positive {
     background-color: var(--income-light);
-    color: #436d50;
+    color: #00E599;
 }
 
 .kpi-pct.negative {
     background-color: var(--expense-light);
-    color: #924747;
+    color: #FF536E;
 }
 
 .kpi-pct.neutral {
     background-color: var(--primary-light);
-    color: var(--secondary);
+    color: #94A3B8;
 }
 
 /* BUTTONS */
@@ -167,26 +167,29 @@
 }
 
 .btn-primary {
-    background-color: var(--secondary);
-    color: #FFFFFF;
-    box-shadow: 0 4px 12px rgba(120, 155, 184, 0.25);
+    background-color: var(--primary);
+    color: #050B12;
+    font-weight: 700;
+    box-shadow: 0 4px 14px rgba(0, 229, 153, 0.28);
 }
 
 .btn-primary:hover {
-    background-color: #6386a3;
-    color: #FFFFFF;
+    background-color: var(--primary-hover);
+    color: #050B12;
     transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(0, 229, 153, 0.38);
 }
 
 .btn-secondary {
-    background-color: var(--sidebar);
+    background-color: #17263A;
     color: var(--text-primary);
     border-color: var(--border);
 }
 
 .btn-secondary:hover {
-    background-color: var(--accent);
-    color: var(--text-primary);
+    background-color: #1E334D;
+    color: #FFFFFF;
+    border-color: #2D4668;
 }
 
 .btn-outline {
@@ -197,7 +200,8 @@
 
 .btn-outline:hover {
     background-color: var(--background);
-    border-color: var(--accent);
+    border-color: var(--primary);
+    color: var(--primary);
 }
 
 .btn-sm {
@@ -208,8 +212,8 @@
 
 .btn-danger {
     background-color: var(--expense-light);
-    color: #964747;
-    border-color: rgba(213, 154, 154, 0.3);
+    color: #FF536E;
+    border-color: rgba(255, 83, 110, 0.3);
 }
 
 .btn-danger:hover {
@@ -230,33 +234,36 @@
 }
 
 .badge-income {
-    background-color: var(--income-light);
-    color: #4b6e55;
+    background-color: rgba(0, 229, 153, 0.15);
+    color: #00E599;
+    border: 1px solid rgba(0, 229, 153, 0.25);
 }
 
 .badge-expense {
-    background-color: var(--expense-light);
-    color: #8c4747;
+    background-color: rgba(255, 83, 110, 0.15);
+    color: #FF536E;
+    border: 1px solid rgba(255, 83, 110, 0.25);
 }
 
 .badge-warning {
     background-color: var(--warning-light);
-    color: #856a31;
+    color: #FBBF24;
 }
 
 .badge-caution {
-    background-color: rgba(214, 183, 122, 0.25);
-    color: #7a6027;
+    background-color: rgba(251, 191, 36, 0.2);
+    color: #FBBF24;
 }
 
 .badge-danger {
-    background-color: rgba(213, 154, 154, 0.25);
-    color: #8c4747;
+    background-color: rgba(255, 83, 110, 0.2);
+    color: #FF536E;
 }
 
 .badge-success {
-    background-color: var(--income-light);
-    color: #4b6e55;
+    background-color: rgba(0, 229, 153, 0.15);
+    color: #00E599;
+    border: 1px solid rgba(0, 229, 153, 0.25);
 }
 
 /* DATA TABLES */
@@ -302,7 +309,7 @@
 }
 
 .custom-table tbody tr:hover {
-    background-color: rgba(230, 239, 246, 0.35);
+    background-color: rgba(23, 38, 58, 0.4);
 }
 
 .tx-amount {
@@ -311,11 +318,11 @@
 }
 
 .tx-amount.income {
-    color: #4b6e55;
+    color: #00E599;
 }
 
 .tx-amount.expense {
-    color: #8c4747;
+    color: #FF536E;
 }
 
 /* PROGRESS BARS */
@@ -368,7 +375,7 @@
     padding: 10px 14px;
     border-radius: 10px;
     border: 1px solid var(--border);
-    background-color: #FFFFFF;
+    background-color: #080F1A;
     font-size: 0.86rem;
     color: var(--text-primary);
     transition: var(--transition);
@@ -376,16 +383,17 @@
 
 .form-control:focus, .form-select:focus {
     outline: none;
-    border-color: var(--secondary);
-    box-shadow: 0 0 0 3px rgba(120, 155, 184, 0.15);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(0, 229, 153, 0.15);
+    background-color: #0B1320;
 }
 
 /* MODALS */
 .modal-backdrop-custom {
     position: fixed;
     inset: 0;
-    background-color: rgba(52, 68, 84, 0.4);
-    backdrop-filter: blur(4px);
+    background-color: rgba(3, 7, 13, 0.75);
+    backdrop-filter: blur(6px);
     z-index: 1050;
     display: none;
     align-items: center;
@@ -399,12 +407,12 @@
 }
 
 .modal-dialog-custom {
-    background-color: #FFFFFF;
+    background-color: #111C2B;
     border-radius: 20px;
     border: 1px solid var(--border);
     width: 100%;
     max-width: 500px;
-    box-shadow: var(--shadow-dropdown);
+    box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.7);
     overflow: hidden;
     animation: scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }

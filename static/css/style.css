@@ -1,33 +1,35 @@
 /* FINORA - Premium Personal Finance & Budget Management Platform
-   Design System: Powder Blue + Frost White + Muted Silver */
+   Design System: Obsidian Dark + Electric Emerald (Matching App Icon) */
 
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-    --background: #F3F7FA;
-    --sidebar: #E6EFF6;
-    --card: #FFFFFF;
-    --primary: #A9C5DC;
-    --secondary: #789BB8;
-    --accent: #C5D2DC;
-    --text-primary: #344454;
-    --text-secondary: #8799A8;
-    --income: #8EAD98;
-    --expense: #D59A9A;
-    --warning: #D6B77A;
-    --border: #E1EAF0;
+    --background: #080E17;
+    --sidebar: #0C1522;
+    --card: #111C2B;
+    --primary: #00E599;
+    --primary-hover: #00CC88;
+    --secondary: #00E599;
+    --accent: #17263A;
+    --text-primary: #F8FAFC;
+    --text-secondary: #94A3B8;
+    --income: #00E599;
+    --expense: #FF536E;
+    --warning: #FBBF24;
+    --border: #1B2B3E;
     
     /* Subtle tints for badges and highlights */
-    --primary-light: rgba(169, 197, 220, 0.18);
-    --secondary-light: rgba(120, 155, 184, 0.12);
-    --income-light: rgba(142, 173, 152, 0.15);
-    --expense-light: rgba(213, 154, 154, 0.15);
-    --warning-light: rgba(214, 183, 122, 0.15);
+    --primary-light: rgba(0, 229, 153, 0.12);
+    --secondary-light: rgba(0, 229, 153, 0.10);
+    --income-light: rgba(0, 229, 153, 0.12);
+    --expense-light: rgba(255, 83, 110, 0.12);
+    --warning-light: rgba(251, 191, 36, 0.12);
     
     /* Shadows */
-    --shadow-subtle: 0 4px 20px -2px rgba(52, 68, 84, 0.04), 0 2px 6px -1px rgba(52, 68, 84, 0.02);
-    --shadow-card: 0 10px 30px -4px rgba(52, 68, 84, 0.06), 0 4px 12px -2px rgba(52, 68, 84, 0.03);
-    --shadow-dropdown: 0 16px 40px -6px rgba(52, 68, 84, 0.10);
+    --shadow-subtle: 0 4px 20px -2px rgba(0, 0, 0, 0.4), 0 2px 6px -1px rgba(0, 0, 0, 0.25);
+    --shadow-card: 0 10px 30px -4px rgba(0, 0, 0, 0.5), 0 4px 12px -2px rgba(0, 0, 0, 0.35);
+    --shadow-dropdown: 0 16px 40px -6px rgba(0, 0, 0, 0.7);
+    --shadow-glow: 0 0 25px rgba(0, 229, 153, 0.25);
     
     /* Layout */
     --sidebar-width: 270px;
@@ -150,13 +152,14 @@ a:hover {
 .brand-logo-icon {
     width: 38px;
     height: 38px;
-    background: linear-gradient(135deg, #789BB8 0%, #A9C5DC 100%);
-    color: #FFFFFF;
+    background: #080E17;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 12px rgba(120, 155, 184, 0.25);
+    box-shadow: 0 0 15px rgba(0, 229, 153, 0.3);
+    border: 1px solid rgba(0, 229, 153, 0.25);
+    overflow: hidden;
 }
 
 .brand-text-container {
@@ -244,14 +247,15 @@ a:hover {
 }
 
 .nav-item.active .nav-link {
-    background-color: #FFFFFF;
-    color: var(--secondary);
+    background-color: rgba(0, 229, 153, 0.12);
+    color: var(--primary);
     font-weight: 600;
-    box-shadow: 0 4px 14px rgba(120, 155, 184, 0.12);
+    box-shadow: none;
+    border-left: 3px solid var(--primary);
 }
 
 .nav-item.active .nav-link i, .nav-item.active .nav-link svg {
-    color: var(--secondary);
+    color: var(--primary);
 }
 
 .nav-badge {
@@ -332,7 +336,7 @@ a:hover {
 /* TOPBAR */
 .app-topbar {
     height: var(--topbar-height);
-    background-color: rgba(255, 255, 255, 0.85);
+    background-color: rgba(12, 21, 34, 0.88);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
@@ -404,7 +408,7 @@ a:hover {
     padding: 8px 12px 8px 36px;
     border: 1px solid var(--border);
     border-radius: var(--radius-pill);
-    background-color: var(--background);
+    background-color: #0E1825;
     font-size: 0.84rem;
     color: var(--text-primary);
     transition: var(--transition);
@@ -412,9 +416,9 @@ a:hover {
 
 .topbar-search input:focus {
     outline: none;
-    border-color: var(--secondary);
-    background-color: #FFFFFF;
-    box-shadow: 0 0 0 3px rgba(120, 155, 184, 0.15);
+    border-color: var(--primary);
+    background-color: #121F30;
+    box-shadow: 0 0 0 3px rgba(0, 229, 153, 0.15);
     width: 280px;
 }
 
@@ -439,7 +443,7 @@ a:hover {
     height: 40px;
     border-radius: 50%;
     border: 1px solid var(--border);
-    background-color: #FFFFFF;
+    background-color: #0E1825;
     color: var(--text-primary);
     display: flex;
     align-items: center;
@@ -450,8 +454,8 @@ a:hover {
 }
 
 .icon-btn:hover {
-    background-color: var(--background);
-    border-color: var(--accent);
+    background-color: var(--accent);
+    border-color: var(--primary);
 }
 
 .notif-badge {
@@ -476,7 +480,7 @@ a:hover {
     top: 52px;
     right: 0;
     width: 340px;
-    background-color: #FFFFFF;
+    background-color: #111C2B;
     border: 1px solid var(--border);
     border-radius: 16px;
     box-shadow: var(--shadow-dropdown);
@@ -565,7 +569,7 @@ a:hover {
     top: 52px;
     right: 0;
     width: 220px;
-    background-color: #FFFFFF;
+    background-color: #111C2B;
     border: 1px solid var(--border);
     border-radius: 16px;
     box-shadow: var(--shadow-dropdown);
@@ -884,11 +888,11 @@ a:hover {
     left: 0;
     right: 0;
     height: 62px;
-    background: #FFFFFF;
+    background: #0C1522;
     border-top: 1px solid var(--border);
     z-index: 1020;
     padding: 0 12px;
-    box-shadow: 0 -4px 16px rgba(52, 68, 84, 0.06);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
     justify-content: space-around;
     align-items: center;
 }
@@ -920,7 +924,7 @@ a:hover {
 }
 
 .mobile-bottom-item.active {
-    color: var(--secondary);
+    color: var(--primary);
     font-weight: 700;
 }
 
@@ -928,10 +932,10 @@ a:hover {
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    background: var(--secondary);
-    color: #FFFFFF;
+    background: var(--primary);
+    color: #050B12;
     margin-top: -16px;
-    box-shadow: 0 4px 12px rgba(120, 155, 184, 0.35);
+    box-shadow: 0 4px 16px rgba(0, 229, 153, 0.45);
     padding: 0;
     border: none;
     cursor: pointer;

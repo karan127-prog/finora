@@ -23,6 +23,7 @@ import android.webkit.WebViewClient;
 import android.widget.EditText;
 import android.net.Uri;
 import android.widget.Toast;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import androidx.appcompat.app.AlertDialog;
@@ -43,6 +44,7 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private SwipeRefreshLayout swipeRefresh;
     private SharedPreferences prefs;
+    private String pendingPrefillJs = null;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -56,8 +58,8 @@ public class MainActivity extends AppCompatActivity {
         swipeRefresh = new SwipeRefreshLayout(this);
         webView = new WebView(this);
 
-        // Native app look: Match app background and eliminate browser edge bounce
-        webView.setBackgroundColor(0xFFF3F7FA);
+        // Native app look: Obsidian dark to match app icon palette, zero edge bounce
+        webView.setBackgroundColor(0xFF080E17);
         webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
         swipeRefresh.addView(webView, new SwipeRefreshLayout.LayoutParams(
@@ -81,7 +83,7 @@ public class MainActivity extends AppCompatActivity {
         settings.setRenderPriority(WebSettings.RenderPriority.HIGH);
         settings.setOffscreenPreRaster(true);
 
-        // Enable persistent cookies and third-party cookies across app restarts
+        // Enable persistent cookies across app restarts
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
@@ -100,6 +102,12 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 CookieManager.getInstance().flush();
+                if (pendingPrefillJs != null) {
+                    final String toRun = pendingPrefillJs;
+                    view.postDelayed(() -> view.evaluateJavascript(toRun, null), 350);
+                    view.postDelayed(() -> view.evaluateJavascript(toRun, null), 1200);
+                    pendingPrefillJs = null;
+                }
             }
 
             @Override
@@ -112,12 +120,12 @@ public class MainActivity extends AppCompatActivity {
         });
 
         swipeRefresh.setOnRefreshListener(() -> webView.reload());
-        swipeRefresh.setColorSchemeColors(0xFF789BB8, 0xFFA9C5DC);
+        swipeRefresh.setColorSchemeColors(0xFF00E599, 0xFF00CC88);
 
         String currentUrl = prefs.getString(KEY_SERVER_URL, DEFAULT_URL);
         webView.loadUrl(currentUrl);
 
-        // Check and prompt for Notification Listener & Post Notification access
+        // Check permissions and incoming intent
         checkNotificationPermissions();
         checkSmsPermissions();
         handleIncomingIntent(getIntent());
@@ -220,25 +228,35 @@ public class MainActivity extends AppCompatActivity {
 
         double amount = intent.getDoubleExtra("quick_amount", 0);
         String payee = intent.getStringExtra("quick_payee");
+        if (payee == null || payee.trim().isEmpty()) payee = "UPI Payment";
 
-        webView.postDelayed(() -> {
-            String js = String.format(
-                "if (window.populateQuickAddModal) { " +
-                "  window.populateQuickAddModal('expense', %.2f, '%s', 'Captured via notification'); " +
-                "} else if (window.openQuickAddModal) { " +
-                "  window.openQuickAddModal('expense'); " +
-                "  const t = document.querySelector('input[name=\"title\"]'); " +
-                "  const a = document.querySelector('input[name=\"amount\"]'); " +
-                "  if (t) t.value = '%s'; " +
-                "  if (a) a.value = '%.2f'; " +
-                "}",
-                amount,
-                (payee != null ? payee.replace("'", "\\'") : "UPI Payment"),
-                (payee != null ? payee.replace("'", "\\'") : "UPI Payment"),
-                amount
-            );
-            webView.evaluateJavascript(js, null);
-        }, 1200);
+        final String finalPayee = payee;
+        final String js = String.format(Locale.US,
+            "(function() { " +
+            "  function fill() { " +
+            "    if (window.populateQuickAddModal) { " +
+            "      window.populateQuickAddModal('expense', %.2f, '%s', 'Captured via notification'); " +
+            "      return true; " +
+            "    } else if (window.openQuickAddModal) { " +
+            "      window.openQuickAddModal('expense'); " +
+            "      const t = document.querySelector('#quickAddModal input[name=\"title\"]'); " +
+            "      const a = document.querySelector('#quickAddModal input[name=\"amount\"]'); " +
+            "      if (t) { t.value = '%s'; t.dispatchEvent(new Event('input', {bubbles:true})); } " +
+            "      if (a) { a.value = '%.2f'; a.dispatchEvent(new Event('input', {bubbles:true})); } " +
+            "      return true; " +
+            "    } " +
+            "    return false; " +
+            "  } " +
+            "  if (!fill()) { " +
+            "    let count = 0; " +
+            "    const timer = setInterval(() => { count++; if (fill() || count > 12) clearInterval(timer); }, 300); " +
+            "  } " +
+            "})();",
+            amount, finalPayee.replace("'", "\\'"), finalPayee.replace("'", "\\'"), amount
+        );
+
+        pendingPrefillJs = js;
+        webView.postDelayed(() -> webView.evaluateJavascript(js, null), 800);
     }
 
     public static class ParsedReceipt {
@@ -248,6 +266,15 @@ public class MainActivity extends AppCompatActivity {
         public String sourceApp = "Shared Receipt";
     }
 
+    private static boolean isValidPayeeCandidate(String s) {
+        if (s == null) return false;
+        String t = s.trim();
+        if (t.length() < 2 || t.length() > 40) return false;
+        if (t.matches("(?i)^(₹|rs\\.?|inr|completed|successful|payment|transaction|date|upi|utr|ref|details|debited|credited|banking|account).*")) return false;
+        if (t.matches("^[\\d,.:\\-\\s]+$")) return false;
+        return true;
+    }
+
     public static ParsedReceipt parseSharedReceiptText(String text) {
         ParsedReceipt res = new ParsedReceipt();
         if (text == null || text.trim().isEmpty()) return res;
@@ -255,14 +282,7 @@ public class MainActivity extends AppCompatActivity {
         String raw = text.trim();
         String lower = raw.toLowerCase();
 
-        // 1. Determine Income vs Expense
-        boolean isIncome = lower.contains("received") ||
-                           lower.contains("credited") ||
-                           lower.contains("sent you") ||
-                           lower.contains("added to your");
-        res.type = isIncome ? "income" : "expense";
-
-        // 2. Identify Source App
+        // 1. Identify Source App
         if (lower.contains("google pay") || lower.contains("gpay")) {
             res.sourceApp = "Google Pay";
         } else if (lower.contains("phonepe")) {
@@ -271,9 +291,20 @@ public class MainActivity extends AppCompatActivity {
             res.sourceApp = "Paytm";
         } else if (lower.contains("cred")) {
             res.sourceApp = "CRED";
+        } else if (lower.contains("bhim")) {
+            res.sourceApp = "BHIM UPI";
         } else {
-            res.sourceApp = "UPI Share";
+            res.sourceApp = "UPI Payment";
         }
+
+        // 2. Determine Income vs Expense
+        boolean isIncome = lower.contains("received from") ||
+                           lower.contains("credited to") ||
+                           lower.contains("credited by") ||
+                           lower.contains("received") ||
+                           lower.contains("sent you") ||
+                           lower.contains("added to your");
+        res.type = isIncome ? "income" : "expense";
 
         // 3. Extract Amount
         Pattern p1 = Pattern.compile("(?:rs\\.?|inr|₹|debited\\s+by|debited\\s+with|credited\\s+by)[\\s\\n]*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
@@ -295,7 +326,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (res.amount <= 0) {
-            Pattern p3 = Pattern.compile("(?:paid|sent|received|payment\\s+of)[\\s\\n]*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+            Pattern p3 = Pattern.compile("(?:paid|sent|received|payment\\s+of|amount:?)[\\s\\n]*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
             Matcher m3 = p3.matcher(raw);
             if (m3.find()) {
                 try {
@@ -304,62 +335,95 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        // 4. Extract Payee / Merchant
-        if (isIncome) {
-            Pattern pPayeeInc = Pattern.compile("(?:from|by|received\\s+from)[\\s\\n]+([A-Za-z0-9\\s&'.-]{2,35}?)(?:[\\s\\n]+(?:using|on\\s+phonepe|on\\s+gpay|on\\s+paytm|on\\s+google|via|ref|tx|transaction|date|http|\\.)|$)", Pattern.CASE_INSENSITIVE);
-            Matcher mInc = pPayeeInc.matcher(raw);
-            if (mInc.find()) {
-                String p = mInc.group(1).trim();
-                if (!p.equalsIgnoreCase("you") && !p.equalsIgnoreCase("account") && p.length() > 2) {
-                    res.payee = p;
+        String[] lines = raw.split("\\r?\\n");
+        if (res.amount <= 0) {
+            for (String l : lines) {
+                String clean = l.trim().replaceAll("^[₹RsINR\\s]+", "").replaceAll("[₹RsINR\\s]+$", "");
+                if (clean.matches("^[\\d,]+(\\.\\d{1,2})?$")) {
+                    try {
+                        double parsed = Double.parseDouble(clean.replace(",", ""));
+                        if (parsed > 0 && parsed < 10000000) {
+                            res.amount = parsed;
+                            break;
+                        }
+                    } catch (Exception ignored) {}
                 }
-            }
-            if (res.payee.isEmpty()) {
-                Pattern sentYou = Pattern.compile("([A-Za-z0-9\\s&'.-]{2,25})[\\s\\n]+sent\\s+you", Pattern.CASE_INSENSITIVE);
-                Matcher mSent = sentYou.matcher(raw);
-                if (mSent.find()) {
-                    res.payee = mSent.group(1).trim();
-                }
-            }
-            if (res.payee.isEmpty()) {
-                res.payee = "Income Transfer";
-            }
-        } else {
-            Pattern pPaidToLine = Pattern.compile("(?:paid\\s+to|payment\\s+to|transfer\\s+to|sent\\s+to|to:?)[\\s\\n]+([A-Za-z0-9\\s&'.-]{2,35}?)(?:\\r?\\n|$)", Pattern.CASE_INSENSITIVE);
-            Matcher mLine = pPaidToLine.matcher(raw);
-            if (mLine.find()) {
-                String p = mLine.group(1).trim();
-                if (!p.equalsIgnoreCase("you") && !p.equalsIgnoreCase("account") && p.length() > 2) {
-                    res.payee = p;
-                }
-            }
-            if (res.payee.isEmpty()) {
-                Pattern pPayeeExp = Pattern.compile("(?:paid\\s+to|paid\\s+successfully\\s+to|to|at|sent\\s+to|trf\\s+to)[\\s\\n]+([A-Za-z0-9\\s&'.-]{2,35}?)(?:[\\s\\n]+(?:using|on\\s+phonepe|on\\s+gpay|on\\s+paytm|on\\s+google|via|was\\s+successful|successful|ref|upi|tx|transaction|date|http|₹|rs|\\.)|$)", Pattern.CASE_INSENSITIVE);
-                Matcher mExp = pPayeeExp.matcher(raw);
-                if (mExp.find()) {
-                    String p = mExp.group(1).trim();
-                    if (!p.equalsIgnoreCase("you") && !p.equalsIgnoreCase("account") && p.length() > 2) {
-                        res.payee = p;
-                    }
-                }
-            }
-            if (res.payee.isEmpty()) {
-                Pattern pBankName = Pattern.compile("(?:banking\\s+name:?|merchant:?)[\\s\\n]+([A-Za-z0-9\\s&'.-]{2,35})", Pattern.CASE_INSENSITIVE);
-                Matcher mBank = pBankName.matcher(raw);
-                if (mBank.find()) {
-                    res.payee = mBank.group(1).trim();
-                }
-            }
-            if (res.payee.isEmpty()) {
-                res.payee = "UPI Payment";
             }
         }
 
-        if (res.payee != null) {
-            res.payee = res.payee.replaceAll("(?i)\\b(using|on|via|account|phonepe|gpay|paytm)\\b.*", "").trim();
-            if (res.payee.isEmpty()) {
-                res.payee = isIncome ? "Income Transfer" : "UPI Payment";
+        // 4. Extract Exact Payee / Merchant / Sender Name
+        String detectedName = "";
+
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
+
+            // Standalone Header line: "Paid to", "Payment to", "To:", "Received from"
+            if (line.matches("(?i)^(paid\\s+to|payment\\s+to|transfer\\s+to|transferred\\s+to|sent\\s+to|received\\s+from|to:?|from:?)$")) {
+                if (i + 1 < lines.length) {
+                    String nextLine = lines[i + 1].trim();
+                    if (isValidPayeeCandidate(nextLine)) {
+                        detectedName = nextLine;
+                        break;
+                    }
+                }
             }
+
+            // Inline Header: "Paid to Ram Kumar" or "To: Vijay Store"
+            Matcher mInline = Pattern.compile("(?i)^(?:paid\\s+to|payment\\s+to|transfer\\s+to|transferred\\s+to|sent\\s+to|received\\s+from|to:|from:)\\s+([A-Za-z0-9\\s&'.-]{2,35})").matcher(line);
+            if (mInline.find()) {
+                String cand = mInline.group(1).trim();
+                if (isValidPayeeCandidate(cand)) {
+                    detectedName = cand;
+                    break;
+                }
+            }
+
+            // Banking / Merchant label: "Banking Name: XYZ"
+            Matcher mBank = Pattern.compile("(?i)(?:banking\\s+name:?|merchant:?)\\s*([A-Za-z0-9\\s&'.-]{2,35})").matcher(line);
+            if (mBank.find()) {
+                String cand = mBank.group(1).trim();
+                if (isValidPayeeCandidate(cand)) {
+                    detectedName = cand;
+                    break;
+                }
+            }
+        }
+
+        // Fallback: Extract name from UPI handle (e.g. "rohit.sharma@oksbi" -> "Rohit Sharma")
+        if (detectedName.isEmpty()) {
+            Pattern pUpi = Pattern.compile("(?i)([a-zA-Z0-9.-]{3,25})@(okhdfcbank|okaxis|oksbi|okicici|ybl|ibl|paytm|axl|upi)");
+            Matcher mUpi = pUpi.matcher(raw);
+            if (mUpi.find()) {
+                String u = mUpi.group(1).replace(".", " ").replace("-", " ").trim();
+                if (u.length() >= 3) {
+                    detectedName = u;
+                }
+            }
+        }
+
+        // Fallback 2: Check first meaningful non-status line
+        if (detectedName.isEmpty()) {
+            for (String l : lines) {
+                String cl = l.trim();
+                if (isValidPayeeCandidate(cl) && !cl.matches("(?i).*(success|transaction|completed|debited|credited|ref|utr|google|phonepe|paytm|bank|account|order).*")) {
+                    detectedName = cl;
+                    break;
+                }
+            }
+        }
+
+        if (detectedName.isEmpty()) {
+            detectedName = isIncome ? "UPI Sender" : "UPI Merchant";
+        }
+
+        // Clean up unwanted trailing tags
+        detectedName = detectedName.replaceAll("(?i)\\b(using|on|via|account|phonepe|gpay|paytm|completed|successful)\\b.*", "").trim();
+
+        // Format user-facing Title clearly indicating direction ("Paid to X" or "Received from Y")
+        if (isIncome) {
+            res.payee = detectedName.toLowerCase().startsWith("received from") ? detectedName : "Received from " + detectedName;
+        } else {
+            res.payee = detectedName.toLowerCase().startsWith("paid to") ? detectedName : "Paid to " + detectedName;
         }
 
         return res;
@@ -406,9 +470,7 @@ public class MainActivity extends AppCompatActivity {
                             openFallbackQuickAdd();
                         }
                     })
-                    .addOnFailureListener(e -> {
-                        openFallbackQuickAdd();
-                    });
+                    .addOnFailureListener(e -> openFallbackQuickAdd());
                 return;
             } catch (Exception e) {
                 openFallbackQuickAdd();
@@ -428,40 +490,55 @@ public class MainActivity extends AppCompatActivity {
         }
 
         String prefix = "income".equals(receipt.type) ? "+" : "-";
-        Toast.makeText(this, "⚡ FINORA: Detected " + prefix + "₹" + String.format("%.2f", receipt.amount) + " (" + receipt.payee + ")", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "⚡ FINORA: " + receipt.payee + " (" + prefix + "₹" + String.format(Locale.US, "%.2f", receipt.amount) + ")", Toast.LENGTH_LONG).show();
 
         final ParsedReceipt r = receipt;
-        webView.postDelayed(() -> {
-            String js = String.format(
-                "if (window.populateQuickAddModal) { " +
-                "  window.populateQuickAddModal('%s', %.2f, '%s', 'Shared via %s'); " +
-                "} else if (window.openQuickAddModal) { " +
-                "  window.openQuickAddModal('%s'); " +
-                "  const t = document.querySelector('#quickAddModal input[name=\"title\"]'); " +
-                "  const a = document.querySelector('#quickAddModal input[name=\"amount\"]'); " +
-                "  const d = document.querySelector('#quickAddModal input[name=\"description\"]'); " +
-                "  if (t) t.value = '%s'; " +
-                "  if (a) a.value = '%.2f'; " +
-                "  if (d) d.value = 'Shared via %s'; " +
-                "}",
-                r.type,
-                r.amount,
-                r.payee.replace("'", "\\'"),
-                r.sourceApp,
-                r.type,
-                r.payee.replace("'", "\\'"),
-                r.amount,
-                r.sourceApp
-            );
-            webView.evaluateJavascript(js, null);
-        }, 1200);
+        final String js = String.format(Locale.US,
+            "(function() { " +
+            "  function fill() { " +
+            "    if (window.populateQuickAddModal) { " +
+            "      window.populateQuickAddModal('%s', %.2f, '%s', 'Shared via %s'); " +
+            "      return true; " +
+            "    } else if (window.openQuickAddModal) { " +
+            "      window.openQuickAddModal('%s'); " +
+            "      const t = document.querySelector('#quickAddModal input[name=\"title\"]'); " +
+            "      const a = document.querySelector('#quickAddModal input[name=\"amount\"]'); " +
+            "      const d = document.querySelector('#quickAddModal input[name=\"description\"]'); " +
+            "      if (t) { t.value = '%s'; t.dispatchEvent(new Event('input', {bubbles:true})); } " +
+            "      if (a) { a.value = '%.2f'; a.dispatchEvent(new Event('input', {bubbles:true})); } " +
+            "      if (d) { d.value = 'Shared via %s'; d.dispatchEvent(new Event('input', {bubbles:true})); } " +
+            "      return true; " +
+            "    } " +
+            "    return false; " +
+            "  } " +
+            "  if (!fill()) { " +
+            "    let count = 0; " +
+            "    const timer = setInterval(() => { count++; if (fill() || count > 15) clearInterval(timer); }, 300); " +
+            "  } " +
+            "})();",
+            r.type,
+            r.amount,
+            r.payee.replace("'", "\\'"),
+            r.sourceApp,
+            r.type,
+            r.payee.replace("'", "\\'"),
+            r.amount,
+            r.sourceApp
+        );
+
+        pendingPrefillJs = js;
+
+        // Try immediate execution if page is ready
+        webView.post(() -> webView.evaluateJavascript(js, null));
+        webView.postDelayed(() -> webView.evaluateJavascript(js, null), 800);
+        webView.postDelayed(() -> webView.evaluateJavascript(js, null), 1600);
     }
 
     private void openFallbackQuickAdd() {
         webView.postDelayed(() -> {
             String js = "if (window.openQuickAddModal) { window.openQuickAddModal('expense'); }";
             webView.evaluateJavascript(js, null);
-        }, 1200);
+        }, 1000);
     }
 
     private void showChangeUrlDialog() {
