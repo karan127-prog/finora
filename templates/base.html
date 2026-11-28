@@ -260,7 +260,7 @@
     <div class="modal-backdrop-custom" id="quickAddModal">
         <div class="modal-dialog-custom">
             <div class="modal-header-custom">
-                <h3>Record New Transaction</h3>
+                <h3 id="quickAddModalTitle">Record New Transaction</h3>
                 <button type="button" class="modal-close-btn" onclick="closeModal('quickAddModal')">
                     <i data-lucide="x"></i>
                 </button>
@@ -382,6 +382,24 @@
 
         function toggleCategorySelect(type) {
             const select = document.getElementById('quickAddCategorySelect');
+            const modalTitle = document.getElementById('quickAddModalTitle');
+            const typeSelect = document.getElementById('quickAddType');
+
+            if (type === 'income') {
+                if (modalTitle) modalTitle.innerHTML = '<span style="color: #00E599; display: flex; align-items: center; gap: 6px;"><i data-lucide="arrow-down-left" style="width: 18px; height: 18px;"></i> Record New Income (+)</span>';
+                if (typeSelect) {
+                    typeSelect.style.borderColor = 'rgba(0, 229, 153, 0.6)';
+                    typeSelect.style.color = '#00E599';
+                }
+            } else {
+                if (modalTitle) modalTitle.innerHTML = '<span style="color: #FF536E; display: flex; align-items: center; gap: 6px;"><i data-lucide="arrow-up-right" style="width: 18px; height: 18px;"></i> Record New Expense (-)</span>';
+                if (typeSelect) {
+                    typeSelect.style.borderColor = 'rgba(255, 83, 110, 0.6)';
+                    typeSelect.style.color = '#FF536E';
+                }
+            }
+            if (window.lucide) window.lucide.createIcons();
+
             if (!select) return;
             const cats = (type === 'income') ? incomeCategoriesData : expenseCategoriesData;
             if (cats.length > 0) {
@@ -393,20 +411,22 @@
             const typeSelect = document.getElementById('quickAddType');
             if (typeSelect) {
                 typeSelect.value = type;
-                toggleCategorySelect(type);
             }
+            toggleCategorySelect(type);
             window.openModal('quickAddModal');
         };
 
         window.populateQuickAddModal = function(type, amount, title, description) {
-            window.openQuickAddModal(type || 'expense');
+            const safeType = (type && type.toLowerCase() === 'income') ? 'income' : 'expense';
+            window.openQuickAddModal(safeType);
             function fill() {
                 const modal = document.getElementById('quickAddModal');
                 if (!modal) return false;
                 const typeSelect = document.getElementById('quickAddType');
-                if (typeSelect && type) {
-                    typeSelect.value = type;
-                    toggleCategorySelect(type);
+                if (typeSelect) {
+                    typeSelect.value = safeType;
+                    toggleCategorySelect(safeType);
+                    typeSelect.dispatchEvent(new Event('change', { bubbles: true }));
                 }
                 const t = modal.querySelector('input[name="title"]');
                 const a = modal.querySelector('input[name="amount"]');

@@ -110,23 +110,28 @@ public class PaymentNotificationListener extends NotificationListenerService {
         }
 
         // 2. CONFIRMED PAYMENT SIGNATURE: Must be a real transaction action, not generic app spam
-        boolean hasDebit = fullContent.matches(".*\\b(debited|deducted|deduction|paid|spent|payment\\s+to|paid\\s+to|sent\\s+to|transfer\\s+to|transferred\\s+to|bill\\s+payment|recharge|payment\\s+of)\\b.*");
-        boolean hasCredit = fullContent.matches(".*\\b(received\\s+from|money\\s+received|credited\\s+to|credited\\s+with|credited\\s+by|has\\s+been\\s+credited|cashback\\s+credited|refund\\s+credited|sent\\s+you|added\\s+to\\s+your|deposit)\\b.*");
+        boolean hasIncomeSignals = Pattern.compile("(?i)\\b(paid\\s+you|sent\\s+you|received\\s+from|money\\s+received|payment\\s+received\\s+from|received\\s+(?:rs\\.?|inr|₹)?\\s*[\\d,.]+|credited\\s+to|credited\\s+with|credited\\s+by|has\\s+been\\s+credited|a/c\\s+credited|account\\s+credited|cashback|refund|added\\s+to\\s+(?:your\\s+)?(?:account|wallet)|deposit)\\b").matcher(fullContent).find();
+        boolean hasExpenseSignals = Pattern.compile("(?i)\\b(paid\\s+to|payment\\s+to|transfer\\s+to|transferred\\s+to|sent\\s+to|money\\s+sent\\s+to|debited\\s+from|amount\\s+debited|account\\s+debited|a/c\\s+debited|debited\\s+by|debited\\s+for|deducted\\s+from|amount\\s+deducted|a/c\\s+deducted|deducted\\s+by|deducted\\s+for|bill\\s+payment|recharge\\s+for|purchase\\s+of|spent\\s+on)\\b").matcher(fullContent).find();
 
-        if (!hasDebit && !hasCredit) {
+        boolean isDebitFrom = Pattern.compile("(?i)\\b(debited\\s+from|deducted\\s+from|a/c\\s+debited|account\\s+debited|amount\\s+debited|amount\\s+deducted|paid\\s+to|payment\\s+to)\\b").matcher(fullContent).find();
+        boolean isCreditTo = Pattern.compile("(?i)\\b(credited\\s+to|a/c\\s+credited|account\\s+credited|paid\\s+you|sent\\s+you|received\\s+from|payment\\s+received\\s+from)\\b").matcher(fullContent).find();
+
+        if (!hasIncomeSignals && !hasExpenseSignals && !isDebitFrom && !isCreditTo) {
             Log.d(TAG, "Notification lacks confirmed payment action: " + fullContent);
             return;
         }
 
         boolean isIncome = false;
-        if (hasCredit && !hasDebit) {
+        if (isDebitFrom) {
+            isIncome = false;
+        } else if (isCreditTo) {
             isIncome = true;
-        } else if (hasCredit && hasDebit) {
-            if (fullContent.matches(".*\\b(debited\\s+from|amount\\s+debited|account\\s+debited|debited\\s+by|deducted\\s+from|amount\\s+deducted)\\b.*")) {
-                isIncome = false;
-            } else if (fullContent.matches(".*\\b(credited\\s+to|amount\\s+credited|account\\s+credited)\\b.*")) {
-                isIncome = true;
-            }
+        } else if (hasIncomeSignals && !hasExpenseSignals) {
+            isIncome = true;
+        } else if (!hasIncomeSignals && hasExpenseSignals) {
+            isIncome = false;
+        } else {
+            isIncome = Pattern.compile("(?i)\\b(received|credited)\\b").matcher(fullContent).find();
         }
 
         final String txType = isIncome ? "income" : "expense";

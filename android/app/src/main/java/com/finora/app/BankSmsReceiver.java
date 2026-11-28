@@ -142,22 +142,27 @@ public class BankSmsReceiver extends BroadcastReceiver {
         }
 
         // 3. Check for DEBIT (Expense) or CREDIT (Income)
-        boolean hasDebit = lowerSms.matches(".*\\b(debited|deducted|deduction|spent|transferred|paid|withdrawn|purchase\\s+of|trf\\s+to|bill\\s+payment)\\b.*");
-        boolean hasCredit = lowerSms.matches(".*\\b(credited|received\\s+from|deposited|cr\\s+to|refund|cashback|has\\s+been\\s+credited)\\b.*");
+        boolean hasIncomeSignals = Pattern.compile("(?i)\\b(paid\\s+you|sent\\s+you|received\\s+from|money\\s+received|payment\\s+received\\s+from|received\\s+(?:rs\\.?|inr|₹)?\\s*[\\d,.]+|credited\\s+to|credited\\s+with|credited\\s+by|has\\s+been\\s+credited|a/c\\s+credited|account\\s+credited|cashback|refund|added\\s+to\\s+(?:your\\s+)?(?:account|wallet)|deposited|cr\\s+to)\\b").matcher(rawSms).find();
+        boolean hasExpenseSignals = Pattern.compile("(?i)\\b(paid\\s+to|payment\\s+to|transfer\\s+to|transferred\\s+to|sent\\s+to|money\\s+sent\\s+to|debited\\s+from|amount\\s+debited|account\\s+debited|a/c\\s+debited|debited\\s+by|debited\\s+for|deducted\\s+from|amount\\s+deducted|a/c\\s+deducted|deducted\\s+by|deducted\\s+for|bill\\s+payment|recharge\\s+for|purchase\\s+of|spent\\s+on|withdrawn|trf\\s+to)\\b").matcher(rawSms).find();
 
-        if (!hasDebit && !hasCredit) {
+        boolean isDebitFrom = Pattern.compile("(?i)\\b(debited\\s+from|deducted\\s+from|a/c\\s+debited|account\\s+debited|amount\\s+debited|amount\\s+deducted|paid\\s+to|payment\\s+to)\\b").matcher(rawSms).find();
+        boolean isCreditTo = Pattern.compile("(?i)\\b(credited\\s+to|a/c\\s+credited|account\\s+credited|paid\\s+you|sent\\s+you|received\\s+from|payment\\s+received\\s+from)\\b").matcher(rawSms).find();
+
+        if (!hasIncomeSignals && !hasExpenseSignals && !isDebitFrom && !isCreditTo) {
             return;
         }
 
         boolean isIncome = false;
-        if (hasCredit && !hasDebit) {
+        if (isDebitFrom) {
+            isIncome = false;
+        } else if (isCreditTo) {
             isIncome = true;
-        } else if (hasCredit && hasDebit) {
-            if (lowerSms.matches(".*\\b(debited\\s+from|amount\\s+debited|account\\s+debited|debited\\s+by|deducted\\s+from|amount\\s+deducted)\\b.*")) {
-                isIncome = false;
-            } else if (lowerSms.matches(".*\\b(credited\\s+to|amount\\s+credited|account\\s+credited)\\b.*")) {
-                isIncome = true;
-            }
+        } else if (hasIncomeSignals && !hasExpenseSignals) {
+            isIncome = true;
+        } else if (!hasIncomeSignals && hasExpenseSignals) {
+            isIncome = false;
+        } else {
+            isIncome = Pattern.compile("(?i)\\b(received|credited|cr\\b)\\b").matcher(rawSms).find();
         }
 
         final String txType = isIncome ? "income" : "expense";

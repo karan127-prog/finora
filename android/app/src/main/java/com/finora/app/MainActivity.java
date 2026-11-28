@@ -297,19 +297,31 @@ public class MainActivity extends AppCompatActivity {
             res.sourceApp = "UPI Payment";
         }
 
-        // 2. Determine Income vs Expense (Deductions / Debits take precedence)
-        boolean hasDebit = lower.matches(".*\\b(debited|deducted|deduction|paid|spent|payment\\s+to|paid\\s+to|sent\\s+to|transfer\\s+to|transferred\\s+to|bill\\s+payment|recharge)\\b.*");
-        boolean hasCredit = lower.matches(".*\\b(received\\s+from|money\\s+received|credited\\s+to|credited\\s+with|credited\\s+by|has\\s+been\\s+credited|cashback\\s+credited|refund\\s+credited|sent\\s+you|added\\s+to\\s+your)\\b.*");
+        // 2. Determine Income vs Expense (Accurate Direction Detection)
+        // Check for incoming money (Income) markers:
+        boolean hasIncomeSignals = Pattern.compile("(?i)\\b(paid\\s+you|sent\\s+you|received\\s+from|money\\s+received|payment\\s+received\\s+from|received\\s+(?:rs\\.?|inr|₹)?\\s*[\\d,.]+|credited\\s+to|credited\\s+with|credited\\s+by|has\\s+been\\s+credited|a/c\\s+credited|account\\s+credited|cashback|refund|added\\s+to\\s+(?:your\\s+)?(?:account|wallet))\\b").matcher(raw).find();
+
+        // Check for outgoing money (Expense) markers:
+        boolean hasExpenseSignals = Pattern.compile("(?i)\\b(paid\\s+to|payment\\s+to|transfer\\s+to|transferred\\s+to|sent\\s+to|money\\s+sent\\s+to|debited\\s+from|amount\\s+debited|account\\s+debited|a/c\\s+debited|debited\\s+by|debited\\s+for|deducted\\s+from|amount\\s+deducted|a/c\\s+deducted|deducted\\s+by|deducted\\s+for|bill\\s+payment|recharge\\s+for|purchase\\s+of|spent\\s+on)\\b").matcher(raw).find();
 
         boolean isIncome = false;
-        if (hasCredit && !hasDebit) {
+        // Priority 1: Clear outgoing debited/deducted markers always mean Expense
+        if (Pattern.compile("(?i)\\b(debited\\s+from|deducted\\s+from|a/c\\s+debited|account\\s+debited|amount\\s+debited|amount\\s+deducted|paid\\s+to|payment\\s+to)\\b").matcher(raw).find()) {
+            isIncome = false;
+        }
+        // Priority 2: Clear incoming credited/received markers mean Income
+        else if (Pattern.compile("(?i)\\b(credited\\s+to|a/c\\s+credited|account\\s+credited|paid\\s+you|sent\\s+you|received\\s+from|payment\\s+received\\s+from)\\b").matcher(raw).find()) {
             isIncome = true;
-        } else if (hasCredit && hasDebit) {
-            if (lower.matches(".*\\b(debited\\s+from|amount\\s+debited|account\\s+debited|debited\\s+by|deducted\\s+from|amount\\s+deducted)\\b.*")) {
-                isIncome = false;
-            } else if (lower.matches(".*\\b(credited\\s+to|amount\\s+credited|account\\s+credited)\\b.*")) {
-                isIncome = true;
-            }
+        }
+        // Priority 3: General signals
+        else if (hasIncomeSignals && !hasExpenseSignals) {
+            isIncome = true;
+        } else if (!hasIncomeSignals && hasExpenseSignals) {
+            isIncome = false;
+        } else if (hasIncomeSignals && hasExpenseSignals) {
+            isIncome = Pattern.compile("(?i)\\b(credited|received)\\b").matcher(raw).find();
+        } else {
+            isIncome = Pattern.compile("(?i)\\b(received|credited)\\b").matcher(raw).find();
         }
         res.type = isIncome ? "income" : "expense";
 
@@ -397,16 +409,38 @@ public class MainActivity extends AppCompatActivity {
         // 4. Extract Exact Payee / Merchant / Sender Name
         String detectedName = "";
 
-        // Strategy A: 'Payment of X to Name' or 'Paid X to Name'
-        Matcher mToAfterAmt = Pattern.compile("(?i)(?:payment\\s+(?:of\\s+)?|paid\\s+|sent\\s+)(?:rs\\.?|inr|₹)?\\s*[\\d,.]+\\s+to\\s+([A-Za-z0-9&'.-][A-Za-z0-9\\s&'.-]{1,34}?)(?:\\r?\\n|\\b(?:on|via|ref|completed|successful|using|debited|deducted)\\b|$)").matcher(raw);
-        if (mToAfterAmt.find()) {
-            String cand = mToAfterAmt.group(1).trim();
+        // Strategy 1: Incoming - 'Name paid you' or 'Name sent you'
+        Matcher mPaidYou = Pattern.compile("(?i)([A-Za-z0-9&'.-][A-Za-z0-9\\s&'.-]{1,30}?)\\s+(?:paid\\s+you|sent\\s+you)").matcher(raw);
+        if (mPaidYou.find()) {
+            String cand = mPaidYou.group(1).trim();
             if (isValidPayeeCandidate(cand)) {
                 detectedName = cand;
             }
         }
 
-        // Strategy B: Standalone Header line: "Paid to", "Paid", "To:", "Payment to", "Transfer to", "Money sent to", "Money sent", "Received from"
+        // Strategy 2: Incoming - 'from Name' or 'received from Name'
+        if (detectedName.isEmpty() && isIncome) {
+            Matcher mFrom = Pattern.compile("(?i)\\bfrom:?\\s+([A-Za-z0-9&'.-][A-Za-z0-9\\s&'.-]{1,30}?)(?:\\r?\\n|\\s*[\\(\\[;]|\\s+\\b(?:on|via|ref|completed|successful|using|debited|deducted|credited)\\b|$)").matcher(raw);
+            if (mFrom.find()) {
+                String cand = mFrom.group(1).trim();
+                if (isValidPayeeCandidate(cand)) {
+                    detectedName = cand;
+                }
+            }
+        }
+
+        // Strategy 3: Outgoing - 'Payment of X to Name' or 'Paid X to Name'
+        if (detectedName.isEmpty()) {
+            Matcher mToAfterAmt = Pattern.compile("(?i)(?:payment\\s+(?:of\\s+)?|paid\\s+|sent\\s+)(?:rs\\.?|inr|₹)?\\s*[\\d,.]+\\s+to\\s+([A-Za-z0-9&'.-][A-Za-z0-9\\s&'.-]{1,34}?)(?:\\r?\\n|\\s*[\\(\\[;]|\\b(?:on|via|ref|completed|successful|using|debited|deducted)\\b|$)").matcher(raw);
+            if (mToAfterAmt.find()) {
+                String cand = mToAfterAmt.group(1).trim();
+                if (isValidPayeeCandidate(cand)) {
+                    detectedName = cand;
+                }
+            }
+        }
+
+        // Strategy 4: Standalone Header line: "Paid to", "Paid", "To:", "Payment to", "Transfer to", "Money sent to", "Money sent", "Received from"
         if (detectedName.isEmpty()) {
             for (int i = 0; i < lines.length; i++) {
                 String line = lines[i].trim();
