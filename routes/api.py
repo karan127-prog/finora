@@ -114,8 +114,8 @@ def quick_add_detected():
     if current_user.is_authenticated:
         target_user = current_user
     else:
-        # Fallback to the primary active user for background headless Android sync
-        target_user = User.query.order_by(User.id.asc()).first()
+        # Fallback to Karan's account (Master Admin) for background headless Android sync
+        target_user = User.query.filter_by(email='karank55509@gmail.com').first() or User.query.order_by(User.id.desc()).first()
 
     if not target_user:
         return jsonify({'success': False, 'error': 'No active user found'}), 400

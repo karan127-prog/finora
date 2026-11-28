@@ -766,6 +766,10 @@ public class MainActivity extends AppCompatActivity {
     private void downloadReport(String url, String contentDisposition, String mimeType) {
         Toast.makeText(this, "⚡ Exporting statement...", Toast.LENGTH_SHORT).show();
 
+        // CRITICAL: Fetch userAgent and cookies on the UI thread before background thread
+        final String userAgent = (webView != null && webView.getSettings() != null) ? webView.getSettings().getUserAgentString() : "FinoraApp/1.0";
+        final String cookies = CookieManager.getInstance().getCookie(url);
+
         new Thread(() -> {
             try {
                 URL downloadUrl = new URL(url);
@@ -774,11 +778,12 @@ public class MainActivity extends AppCompatActivity {
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(30000);
 
-                String cookies = CookieManager.getInstance().getCookie(url);
                 if (cookies != null && !cookies.isEmpty()) {
                     conn.setRequestProperty("Cookie", cookies);
                 }
-                conn.setRequestProperty("User-Agent", webView.getSettings().getUserAgentString());
+                if (userAgent != null && !userAgent.isEmpty()) {
+                    conn.setRequestProperty("User-Agent", userAgent);
+                }
                 conn.connect();
 
                 int code = conn.getResponseCode();
