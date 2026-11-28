@@ -9,8 +9,13 @@ venv/
 ENV/
 
 # Database
+*.db
 *.db-journal
+*.sqlite
+*.sqlite3
 *.sqlite3-journal
+finora.db
+finora_backup.db
 
 # Android Build artifacts
 android/.gradle/

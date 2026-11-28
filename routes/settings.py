@@ -59,18 +59,30 @@ def change_password():
     flash('Password changed successfully!', 'success')
     return redirect(url_for('settings.index'))
 
-@settings_bp.route('/settings/reseed-demo', methods=['POST'])
+@settings_bp.route('/settings/users', methods=['GET'])
 @login_required
-def reseed_demo():
-    """Reseed demo data for immediate testing."""
-    Transaction.query.filter_by(user_id=current_user.id).delete()
-    Budget.query.filter_by(user_id=current_user.id).delete()
-    SavingsGoal.query.filter_by(user_id=current_user.id).delete()
-    RecurringTransaction.query.filter_by(user_id=current_user.id).delete()
-    Notification.query.filter_by(user_id=current_user.id).delete()
-    db.session.commit()
+def users():
+    if current_user.email != 'karank55509@gmail.com':
+        flash('Access Denied: Only master administrator (karank55509@gmail.com) can manage or delete user accounts.', 'danger')
+        return redirect(url_for('settings.index'))
+    all_users = User.query.order_by(User.id.asc()).all()
+    return render_template('settings/users.html', users=all_users)
 
-    # Call seed logic
-    seed_demo_user()
-    flash('Financial portfolio reset and loaded with fresh realistic data!', 'success')
-    return redirect(url_for('dashboard.index'))
+@settings_bp.route('/settings/users/delete/<int:user_id>', methods=['POST'])
+@login_required
+def delete_user(user_id):
+    if current_user.email != 'karank55509@gmail.com':
+        flash('Access Denied: Only master administrator (karank55509@gmail.com) has permission to delete user accounts.', 'danger')
+        return redirect(url_for('settings.index'))
+
+    target_user = User.query.get_or_404(user_id)
+    if target_user.email == 'karank55509@gmail.com':
+        flash('Action blocked: Master administrator account is permanent and cannot be deleted.', 'danger')
+        return redirect(url_for('settings.users'))
+
+    u_name = target_user.name
+    u_email = target_user.email
+    db.session.delete(target_user)
+    db.session.commit()
+    flash(f'User account "{u_name}" ({u_email}) has been permanently deleted.', 'success')
+    return redirect(url_for('settings.users'))

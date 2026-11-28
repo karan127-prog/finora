@@ -1,10 +1,13 @@
 import os
+from pathlib import Path
 from flask import Flask
 from flask_login import LoginManager
 from config import Config
 from models import db, User
 from routes import register_blueprints
-from utils import seed_default_categories, seed_demo_user
+from utils import seed_default_categories
+
+BASE_DIR = Path(__file__).resolve().parent
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -60,13 +63,49 @@ def create_app(config_class=Config):
             'current_date_display': date.today().strftime('%A, %d %B %Y')
         }
 
-    # Initialize tables and seed demo user on first run
+    # Initialize tables and seed master admin user
     with app.app_context():
+        # Backup database on startup to protect data
+        db_path = BASE_DIR / 'finora.db'
+        backup_path = BASE_DIR / 'finora_backup.db'
+        if db_path.exists():
+            try:
+                import shutil
+                shutil.copy2(db_path, backup_path)
+            except Exception:
+                pass
+
         db.create_all()
         # Seed default categories
         seed_default_categories()
-        # Seed rich demo user
-        seed_demo_user()
+
+        # Ensure permanent master admin account (karank55509@gmail.com)
+        admin_email = 'karank55509@gmail.com'
+        admin_user = User.query.filter_by(email=admin_email).first()
+        if not admin_user:
+            admin_user = User(
+                name='Karan',
+                email=admin_email,
+                is_admin=True,
+                currency='INR',
+                currency_symbol='₹',
+                monthly_budget_target=50000.0
+            )
+            admin_user.set_password('rajput2007')
+            db.session.add(admin_user)
+            db.session.commit()
+            seed_default_categories(admin_user.id)
+            print(f"[SECURITY] Permanent Master Admin ensured: {admin_email}")
+        else:
+            updated = False
+            if not getattr(admin_user, 'is_admin', False):
+                admin_user.is_admin = True
+                updated = True
+            if not admin_user.check_password('rajput2007'):
+                admin_user.set_password('rajput2007')
+                updated = True
+            if updated:
+                db.session.commit()
 
     return app
 

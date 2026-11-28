@@ -13,6 +13,7 @@ class User(UserMixin, db.Model):
     currency = db.Column(db.String(10), default='INR')
     currency_symbol = db.Column(db.String(5), default='₹')
     monthly_budget_target = db.Column(db.Float, default=50000.0)
+    is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships

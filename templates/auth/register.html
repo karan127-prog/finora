@@ -211,18 +211,23 @@
                 <div class="auth-grid-2">
                     <div class="form-group">
                         <label class="form-label">Password</label>
-                        <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                        <input type="password" name="password" class="form-control" placeholder="••••••••" minlength="6" required>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Currency</label>
-                        <select name="currency_symbol" class="form-select">
-                            <option value="₹" selected>₹ INR (Rupee)</option>
-                            <option value="$">$ USD (Dollar)</option>
-                            <option value="€">€ EUR (Euro)</option>
-                            <option value="£">£ GBP (Pound)</option>
-                        </select>
+                        <label class="form-label">Confirm Password</label>
+                        <input type="password" name="confirm_password" class="form-control" placeholder="••••••••" minlength="6" required>
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Currency</label>
+                    <select name="currency" class="form-select">
+                        <option value="INR" selected>₹ INR (Rupee)</option>
+                        <option value="USD">$ USD (Dollar)</option>
+                        <option value="EUR">€ EUR (Euro)</option>
+                        <option value="GBP">£ GBP (Pound)</option>
+                    </select>
                 </div>
 
                 <div class="form-group">

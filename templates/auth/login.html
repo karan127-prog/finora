@@ -235,32 +235,17 @@
                 {% endif %}
             {% endwith %}
 
-            <!-- Instant Demo Access -->
-            <form action="{{ url_for('auth.login') }}" method="POST" style="margin-bottom: 18px;">
-                <input type="hidden" name="action" value="demo_login">
-                <button type="submit" class="btn-demo">
-                    <i data-lucide="zap" style="width: 15px; height: 15px; color: #00E599;"></i>
-                    <span>One-Click Instant Demo Access</span>
-                </button>
-            </form>
-
-            <div class="divider">
-                <div class="divider-line"></div>
-                <span class="divider-text">or sign in with email</span>
-                <div class="divider-line"></div>
-            </div>
-
             <form action="{{ url_for('auth.login') }}" method="POST">
                 <div class="form-group">
                     <label class="form-label">Email Address</label>
-                    <input type="email" name="email" class="form-control" placeholder="name@company.com" required value="demo@finora.app">
+                    <input type="email" name="email" class="form-control" placeholder="Enter your email" required autofocus>
                 </div>
 
                 <div class="form-group">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <label class="form-label" style="margin-bottom: 0;">Password</label>
                     </div>
-                    <input type="password" name="password" class="form-control" placeholder="••••••••" required value="password123">
+                    <input type="password" name="password" class="form-control" placeholder="Enter your password" required>
                 </div>
 
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px;">

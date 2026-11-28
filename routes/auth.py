@@ -22,16 +22,6 @@ def login():
         return redirect(url_for('dashboard.index'))
 
     if request.method == 'POST':
-        action = request.form.get('action')
-        
-        # Quick Demo Account login
-        if action == 'demo_login':
-            demo_user = seed_demo_user()
-            session.permanent = True
-            login_user(demo_user, remember=True)
-            flash('Logged in as Demo User with realistic portfolio data.', 'success')
-            return redirect(url_for('dashboard.index'))
-
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
         remember = bool(request.form.get('remember', True))
@@ -43,7 +33,7 @@ def login():
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
             session.permanent = True
-            login_user(user, remember=True)
+            login_user(user, remember=remember)
             flash(f'Welcome back, {user.name}!', 'success')
             next_page = request.args.get('next')
             if next_page and is_safe_url(next_page):
@@ -74,7 +64,8 @@ def register():
             flash('Please enter a valid email address.', 'warning')
             return render_template('auth/register.html')
 
-        if password != confirm_password:
+        # Verify password confirmation if provided
+        if confirm_password and password != confirm_password:
             flash('Passwords do not match. Please verify.', 'danger')
             return render_template('auth/register.html')
 
@@ -92,7 +83,8 @@ def register():
             name=name,
             email=email,
             currency=currency,
-            currency_symbol=symbols.get(currency, '₹')
+            currency_symbol=symbols.get(currency, '₹'),
+            is_admin=False
         )
         new_user.set_password(password)
         db.session.add(new_user)

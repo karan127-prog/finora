@@ -85,18 +85,26 @@
             </button>
         </form>
 
+        {% if current_user.email == 'karank55509@gmail.com' %}
         <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border);">
-            <div style="font-weight: 600; font-size: 0.92rem; color: #8c4747; margin-bottom: 6px;">Demo Portfolio Reset</div>
-            <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 12px;">
-                Reload the complete demo financial portfolio with rich realistic transactions, budgets, recurring bills, and savings goals.
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <div style="font-weight: 700; font-size: 0.96rem; color: #00E599; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="shield-check" style="width: 18px; height: 18px;"></i>
+                    <span>Master Admin Control</span>
+                </div>
+                <span class="badge" style="background: rgba(0, 229, 153, 0.15); color: #00E599; border: 1px solid rgba(0, 229, 153, 0.3);">
+                    Exclusive Access
+                </span>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 14px;">
+                Only your master account (<strong style="color: #F8FAFC;">karank55509@gmail.com</strong>) has access to manage and delete registered user accounts in the database.
             </p>
-            <form action="{{ url_for('settings.reseed_demo') }}" method="POST" onsubmit="return confirm('Reset and reseed demo financial records?')">
-                <button type="submit" class="btn btn-outline btn-sm" style="color: var(--secondary); border-color: var(--secondary);">
-                    <i data-lucide="rotate-ccw" style="width: 14px; height: 14px;"></i>
-                    <span>Reload Realistic Sample Data</span>
-                </button>
-            </form>
+            <a href="{{ url_for('settings.users') }}" class="btn btn-secondary btn-sm" style="display: inline-flex; align-items: center; gap: 8px; border-color: rgba(0, 229, 153, 0.3);">
+                <i data-lucide="users" style="width: 15px; height: 15px; color: #00E599;"></i>
+                <span>Manage & Delete User Accounts</span>
+            </a>
         </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
