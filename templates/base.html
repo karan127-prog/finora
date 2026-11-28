@@ -397,6 +397,16 @@
             }
             window.openModal('quickAddModal');
         };
+
+        window.populateQuickAddModal = function(type, amount, title, description) {
+            window.openQuickAddModal(type || 'expense');
+            const t = document.querySelector('#quickAddModal input[name="title"]');
+            const a = document.querySelector('#quickAddModal input[name="amount"]');
+            const d = document.querySelector('#quickAddModal input[name="description"]');
+            if (t && title) t.value = title;
+            if (a && amount) a.value = parseFloat(amount).toFixed(2);
+            if (d && description) d.value = description;
+        };
     </script>
 </body>
 </html>

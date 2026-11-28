@@ -22,6 +22,8 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.EditText;
 import android.widget.Toast;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
@@ -112,7 +114,7 @@ public class MainActivity extends AppCompatActivity {
         // Check and prompt for Notification Listener & Post Notification access
         checkNotificationPermissions();
         checkSmsPermissions();
-        handleQuickAddIntent(getIntent());
+        handleIncomingIntent(getIntent());
 
         // Automatically sync recent bank SMS on launch
         if (checkSelfPermission(android.Manifest.permission.READ_SMS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -189,7 +191,22 @@ public class MainActivity extends AppCompatActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        handleQuickAddIntent(intent);
+        handleIncomingIntent(intent);
+    }
+
+    private void handleIncomingIntent(Intent intent) {
+        if (intent == null) return;
+
+        // Option A: Quick Add from FINORA Notification
+        if (intent.hasExtra("quick_amount")) {
+            handleQuickAddIntent(intent);
+            return;
+        }
+
+        // Option B: "Share to FINORA" from GPay, PhonePe, Paytm, Banking SMS, WhatsApp
+        if (Intent.ACTION_SEND.equals(intent.getAction())) {
+            handleSharedReceiptIntent(intent);
+        }
     }
 
     private void handleQuickAddIntent(Intent intent) {
@@ -200,15 +217,163 @@ public class MainActivity extends AppCompatActivity {
 
         webView.postDelayed(() -> {
             String js = String.format(
-                "if (window.openQuickAddModal) { " +
+                "if (window.populateQuickAddModal) { " +
+                "  window.populateQuickAddModal('expense', %.2f, '%s', 'Captured via notification'); " +
+                "} else if (window.openQuickAddModal) { " +
                 "  window.openQuickAddModal('expense'); " +
                 "  const t = document.querySelector('input[name=\"title\"]'); " +
                 "  const a = document.querySelector('input[name=\"amount\"]'); " +
                 "  if (t) t.value = '%s'; " +
                 "  if (a) a.value = '%.2f'; " +
                 "}",
+                amount,
+                (payee != null ? payee.replace("'", "\\'") : "UPI Payment"),
                 (payee != null ? payee.replace("'", "\\'") : "UPI Payment"),
                 amount
+            );
+            webView.evaluateJavascript(js, null);
+        }, 1200);
+    }
+
+    public static class ParsedReceipt {
+        public double amount = 0;
+        public String payee = "";
+        public String type = "expense"; // "expense" or "income"
+        public String sourceApp = "Shared Receipt";
+    }
+
+    public static ParsedReceipt parseSharedReceiptText(String text) {
+        ParsedReceipt res = new ParsedReceipt();
+        if (text == null || text.trim().isEmpty()) return res;
+
+        String raw = text.trim();
+        String lower = raw.toLowerCase();
+
+        // 1. Determine Income vs Expense
+        boolean isIncome = lower.contains("received") ||
+                           lower.contains("credited") ||
+                           lower.contains("sent you") ||
+                           lower.contains("added to your");
+        res.type = isIncome ? "income" : "expense";
+
+        // 2. Identify Source App
+        if (lower.contains("google pay") || lower.contains("gpay")) {
+            res.sourceApp = "Google Pay";
+        } else if (lower.contains("phonepe")) {
+            res.sourceApp = "PhonePe";
+        } else if (lower.contains("paytm")) {
+            res.sourceApp = "Paytm";
+        } else if (lower.contains("cred")) {
+            res.sourceApp = "CRED";
+        } else {
+            res.sourceApp = "UPI Share";
+        }
+
+        // 3. Extract Amount
+        Pattern p1 = Pattern.compile("(?:rs\\.?|inr|₹|debited\\s+by|debited\\s+with|credited\\s+by)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+        Matcher m1 = p1.matcher(raw);
+        if (m1.find()) {
+            try {
+                res.amount = Double.parseDouble(m1.group(1).replace(",", ""));
+            } catch (Exception ignored) {}
+        }
+
+        if (res.amount <= 0) {
+            Pattern p2 = Pattern.compile("([\\d,]+(?:\\.\\d{1,2})?)\\s*(?:rs\\.?|inr|₹)", Pattern.CASE_INSENSITIVE);
+            Matcher m2 = p2.matcher(raw);
+            if (m2.find()) {
+                try {
+                    res.amount = Double.parseDouble(m2.group(1).replace(",", ""));
+                } catch (Exception ignored) {}
+            }
+        }
+
+        if (res.amount <= 0) {
+            Pattern p3 = Pattern.compile("(?:paid|sent|received|payment\\s+of)\\s*([\\d,]+(?:\\.\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+            Matcher m3 = p3.matcher(raw);
+            if (m3.find()) {
+                try {
+                    res.amount = Double.parseDouble(m3.group(1).replace(",", ""));
+                } catch (Exception ignored) {}
+            }
+        }
+
+        // 4. Extract Payee / Merchant
+        if (isIncome) {
+            Pattern pPayeeInc = Pattern.compile("(?:from|by|received\\s+from)\\s+([A-Za-z0-9\\s&'.-]{2,35}?)(?:\\s+(?:using|on\\s+phonepe|on\\s+gpay|on\\s+paytm|on\\s+google|via|ref|tx|transaction|date|http|\\.)|$)", Pattern.CASE_INSENSITIVE);
+            Matcher mInc = pPayeeInc.matcher(raw);
+            if (mInc.find()) {
+                String p = mInc.group(1).trim();
+                if (!p.equalsIgnoreCase("you") && !p.equalsIgnoreCase("account") && p.length() > 2) {
+                    res.payee = p;
+                }
+            }
+            if (res.payee.isEmpty()) {
+                Pattern sentYou = Pattern.compile("([A-Za-z0-9\\s&'.-]{2,25})\\s+sent\\s+you", Pattern.CASE_INSENSITIVE);
+                Matcher mSent = sentYou.matcher(raw);
+                if (mSent.find()) {
+                    res.payee = mSent.group(1).trim();
+                }
+            }
+            if (res.payee.isEmpty()) {
+                res.payee = "Income Transfer";
+            }
+        } else {
+            Pattern pPayeeExp = Pattern.compile("(?:paid\\s+to|paid\\s+successfully\\s+to|to|at|sent\\s+to|trf\\s+to)\\s+([A-Za-z0-9\\s&'.-]{2,35}?)(?:\\s+(?:using|on\\s+phonepe|on\\s+gpay|on\\s+paytm|on\\s+google|via|was\\s+successful|successful|ref|upi|tx|transaction|date|http|₹|rs|\\.)|$)", Pattern.CASE_INSENSITIVE);
+            Matcher mExp = pPayeeExp.matcher(raw);
+            if (mExp.find()) {
+                String p = mExp.group(1).trim();
+                if (!p.equalsIgnoreCase("you") && !p.equalsIgnoreCase("account") && p.length() > 2) {
+                    res.payee = p;
+                }
+            }
+            if (res.payee.isEmpty()) {
+                res.payee = "UPI Merchant";
+            }
+        }
+
+        return res;
+    }
+
+    private void handleSharedReceiptIntent(Intent intent) {
+        String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
+        if (sharedText == null || sharedText.trim().isEmpty()) {
+            CharSequence extraSubject = intent.getCharSequenceExtra(Intent.EXTRA_SUBJECT);
+            if (extraSubject != null) sharedText = extraSubject.toString();
+        }
+        if (sharedText == null || sharedText.trim().isEmpty()) return;
+
+        ParsedReceipt receipt = parseSharedReceiptText(sharedText);
+        if (receipt.amount <= 0 && (receipt.payee == null || receipt.payee.isEmpty())) {
+            Toast.makeText(this, "Could not extract payment details from shared text", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String prefix = "income".equals(receipt.type) ? "+" : "-";
+        Toast.makeText(this, "⚡ FINORA: Detected " + prefix + "₹" + String.format("%.2f", receipt.amount) + " (" + receipt.payee + ")", Toast.LENGTH_LONG).show();
+
+        final ParsedReceipt r = receipt;
+        webView.postDelayed(() -> {
+            String js = String.format(
+                "if (window.populateQuickAddModal) { " +
+                "  window.populateQuickAddModal('%s', %.2f, '%s', 'Shared via %s'); " +
+                "} else if (window.openQuickAddModal) { " +
+                "  window.openQuickAddModal('%s'); " +
+                "  const t = document.querySelector('#quickAddModal input[name=\"title\"]'); " +
+                "  const a = document.querySelector('#quickAddModal input[name=\"amount\"]'); " +
+                "  const d = document.querySelector('#quickAddModal input[name=\"description\"]'); " +
+                "  if (t) t.value = '%s'; " +
+                "  if (a) a.value = '%.2f'; " +
+                "  if (d) d.value = 'Shared via %s'; " +
+                "}",
+                r.type,
+                r.amount,
+                r.payee.replace("'", "\\'"),
+                r.sourceApp,
+                r.type,
+                r.payee.replace("'", "\\'"),
+                r.amount,
+                r.sourceApp
             );
             webView.evaluateJavascript(js, null);
         }, 1200);
