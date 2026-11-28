@@ -21,6 +21,12 @@
     </div>
 
     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <form action="{{ url_for('transactions.clear_past') }}" method="POST" style="display: inline;" onsubmit="return confirm('Do you want to delete past transactions before today and start tracking fresh from today?');">
+            <button type="submit" class="btn btn-outline" style="color: #b04e4e; border-color: rgba(176, 78, 78, 0.4);" title="Delete transactions before today">
+                <i data-lucide="calendar-check" style="width: 15px; height: 15px;"></i>
+                <span>Start Fresh From Today</span>
+            </button>
+        </form>
         <button type="button" class="btn btn-outline" onclick="openAddCategoryModal('expense')">
             <i data-lucide="folder-plus" style="width: 15px; height: 15px;"></i>
             <span>New Category</span>

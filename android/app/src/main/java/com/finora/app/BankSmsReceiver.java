@@ -19,6 +19,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -34,6 +35,19 @@ public class BankSmsReceiver extends BroadcastReceiver {
     private static final String[] BLOCKED_SECURITY_WORDS = {
         "otp", "verification", "security code", "secret", "password",
         "do not share", "never share", "one time password", "login code"
+    };
+
+    // STRICT PROMOTIONAL & AD FILTER: Ignore bank spam, loan offers, credit card sales, cashback promos
+    private static final String[] PROMO_OR_AD_KEYWORDS = {
+        "discount", "offer", "deal", "coupon", "voucher", "promo",
+        "win ", "won ", "winner", "chance to win", "scratch", "spin",
+        "earn ", "earning", "flat ₹", "flat rs", "flat off", "% off", "off on",
+        "upto", "up to", "save ₹", "save up to", "save more",
+        "loan", "pre-approved", "credit card", "apply now", "claim now",
+        "claim your", "claim reward", "congratulations", "invite", "referral",
+        "invest in", "start sip", "buy gold", "insurance", "bill due",
+        "due date", "due on", "bill generated", "expir", "expires", "valid till",
+        "recharge now", "pay now", "tap to pay"
     };
 
     @Override
@@ -73,24 +87,36 @@ public class BankSmsReceiver extends BroadcastReceiver {
     public static void syncRecentBankSms(Context context) {
         new Thread(() -> {
             try {
+                // Strictly only query SMS received TODAY (since midnight 00:00:00)
+                Calendar cal = Calendar.getInstance();
+                cal.set(Calendar.HOUR_OF_DAY, 0);
+                cal.set(Calendar.MINUTE, 0);
+                cal.set(Calendar.SECOND, 0);
+                cal.set(Calendar.MILLISECOND, 0);
+                long startOfToday = cal.getTimeInMillis();
+
                 Uri uri = Uri.parse("content://sms/inbox");
+                String selection = "date >= " + startOfToday;
                 Cursor cursor = context.getContentResolver().query(
                     uri,
                     new String[]{"address", "body", "date"},
+                    selection,
                     null,
-                    null,
-                    "date DESC LIMIT 25"
+                    "date DESC LIMIT 50"
                 );
                 if (cursor != null) {
                     while (cursor.moveToNext()) {
                         String address = cursor.getString(0);
                         String body = cursor.getString(1);
-                        processSms(context, address, body, false);
+                        long msgDate = cursor.getLong(2);
+                        if (msgDate >= startOfToday) {
+                            processSms(context, address, body, false);
+                        }
                     }
                     cursor.close();
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Error syncing past SMS inbox: " + e.getMessage());
+                Log.e(TAG, "Error syncing today's SMS inbox: " + e.getMessage());
             }
         }).start();
     }
@@ -107,7 +133,15 @@ public class BankSmsReceiver extends BroadcastReceiver {
             }
         }
 
-        // 2. Check for DEBIT (Expense) or CREDIT (Income)
+        // 2. STRICT PROMOTIONAL & AD FILTER: Ignore bank promotional offers & spam
+        for (String promo : PROMO_OR_AD_KEYWORDS) {
+            if (lowerSms.contains(promo)) {
+                Log.i(TAG, "Ignored bank promo SMS containing '" + promo + "'");
+                return;
+            }
+        }
+
+        // 3. Check for DEBIT (Expense) or CREDIT (Income)
         boolean isDebit = lowerSms.contains("debited") ||
                           lowerSms.contains("spent") ||
                           lowerSms.contains("transferred") ||

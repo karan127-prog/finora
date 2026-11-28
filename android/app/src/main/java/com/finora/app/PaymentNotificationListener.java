@@ -34,6 +34,22 @@ public class PaymentNotificationListener extends NotificationListenerService {
         "received", "credited", "deposit", "deposited", "sent you", "added to", "cr to", "credit"
     };
 
+    // STRICT PROMOTIONAL & AD FILTER: If notification contains ANY of these, it is an advertisement, NOT a real payment!
+    private static final String[] PROMO_OR_AD_KEYWORDS = {
+        "cashback", "reward", "rewards", "discount", "offer", "offers",
+        "deal", "deals", "coupon", "coupons", "voucher", "promo",
+        "win ", "won ", "winner", "chance to win", "scratch", "spin",
+        "earn ", "earning", "flat ₹", "flat rs", "flat off", "% off", "off on",
+        "upto", "up to", "save ₹", "save up to", "save more",
+        "loan", "pre-approved", "credit card", "apply now", "claim now",
+        "claim your", "claim reward", "congratulations", "invite", "referral",
+        "refer & earn", "refer and earn", "invest in", "start sip", "buy gold",
+        "digital gold", "insurance", "bill due", "upcoming bill", "due date",
+        "due on", "bill generated", "expir", "expires", "valid till",
+        "request from", "requested", "requesting", "has requested",
+        "recharge now", "pay now", "tap to pay", "pending payment"
+    };
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -85,13 +101,35 @@ public class PaymentNotificationListener extends NotificationListenerService {
             return;
         }
 
-        // Check whether it is a received payment (Income) or made payment (Expense)
+        // 1. STRICT PROMOTIONAL & AD FILTER: Drop any promotional offer, loan, cashback ad, or bill reminder!
+        for (String promo : PROMO_OR_AD_KEYWORDS) {
+            if (fullContent.contains(promo)) {
+                Log.i(TAG, "Ignored promotional ad containing '" + promo + "': " + title);
+                return;
+            }
+        }
+
+        // 2. CONFIRMED PAYMENT SIGNATURE: Must be a real transaction action, not generic app spam
         boolean isCredit = fullContent.contains("received") ||
                            fullContent.contains("credited") ||
                            fullContent.contains("deposit") ||
                            fullContent.contains("payment received") ||
                            fullContent.contains("sent you") ||
                            fullContent.contains("added to your");
+
+        boolean isDebit = fullContent.contains("paid") ||
+                          fullContent.contains("debited") ||
+                          fullContent.contains("spent") ||
+                          fullContent.contains("transfer to") ||
+                          fullContent.contains("transferred to") ||
+                          fullContent.contains("sent to") ||
+                          fullContent.contains("payment of") ||
+                          fullContent.contains("successful");
+
+        if (!isCredit && !isDebit) {
+            Log.d(TAG, "Notification lacks confirmed payment action: " + fullContent);
+            return;
+        }
 
         final String txType = isCredit ? "income" : "expense";
 

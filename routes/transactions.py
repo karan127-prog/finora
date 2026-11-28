@@ -200,6 +200,18 @@ def delete(id):
     flash(f'Transaction "{title}" deleted.', 'info')
     return redirect(request.referrer or url_for('transactions.index'))
 
+@transactions_bp.route('/transactions/clear-past', methods=['POST'])
+@login_required
+def clear_past():
+    today = date.today()
+    deleted_count = Transaction.query.filter(
+        Transaction.user_id == current_user.id,
+        Transaction.date < today
+    ).delete(synchronize_session=False)
+    db.session.commit()
+    flash(f'Cleared {deleted_count} past transaction(s). Fresh tracking starts from today ({today.strftime("%d %b %Y")})!', 'success')
+    return redirect(url_for('transactions.index'))
+
 @transactions_bp.route('/categories/add', methods=['POST'])
 @login_required
 def add_category():

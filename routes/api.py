@@ -136,8 +136,17 @@ def quick_add_detected():
     if tx_type not in ('income', 'expense'):
         tx_type = 'expense'
 
-    # Smart Auto-Categorization based on payee keyword and type
+    # Reject any promotional advertisements or spam disguised as payments
     payee_lower = payee.lower()
+    promo_blocklist = [
+        'cashback', 'reward', 'discount', 'offer', 'deal', 'coupon', 'voucher',
+        'win ', 'won ', 'winner', 'scratch', 'spin', 'flat ₹', 'flat rs', '% off', 'upto',
+        'loan', 'pre-approved', 'credit card', 'apply now', 'claim now',
+        'congratulations', 'invest in', 'sip', 'gold starting', 'bill due',
+        'due date', 'bill generated', 'recharge now', 'pay now'
+    ]
+    if any(p in payee_lower for p in promo_blocklist):
+        return jsonify({'success': False, 'error': 'Ignored promotional offer or advertisement'}), 400
     suggested_category_name = "Other Income" if tx_type == 'income' else "Miscellaneous"
 
     if tx_type == 'income':
