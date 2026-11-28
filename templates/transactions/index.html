@@ -12,17 +12,17 @@
         </div>
         <div style="padding: 10px 18px; background-color: var(--card); border: 1px solid var(--border); border-radius: 12px;">
             <div style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase;">Filtered Inflow</div>
-            <div style="font-size: 1.1rem; font-weight: 700; color: #4b6e55;">+{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(filtered_income) }}</div>
+            <div style="font-size: 1.1rem; font-weight: 700; color: #00E599;">+{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(filtered_income) }}</div>
         </div>
         <div style="padding: 10px 18px; background-color: var(--card); border: 1px solid var(--border); border-radius: 12px;">
             <div style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase;">Filtered Outflow</div>
-            <div style="font-size: 1.1rem; font-weight: 700; color: #8c4747;">-{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(filtered_expense) }}</div>
+            <div style="font-size: 1.1rem; font-weight: 700; color: #FF536E;">-{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(filtered_expense) }}</div>
         </div>
     </div>
 
     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
         <form action="{{ url_for('transactions.clear_past') }}" method="POST" style="display: inline;" onsubmit="return confirm('Do you want to delete past transactions before today and start tracking fresh from today?');">
-            <button type="submit" class="btn btn-outline" style="color: #b04e4e; border-color: rgba(176, 78, 78, 0.4);" title="Delete transactions before today">
+            <button type="submit" class="btn btn-outline" style="color: #FF536E; border-color: rgba(255, 83, 110, 0.35);" title="Delete transactions before today">
                 <i data-lucide="calendar-check" style="width: 15px; height: 15px;"></i>
                 <span>Start Fresh From Today</span>
             </button>

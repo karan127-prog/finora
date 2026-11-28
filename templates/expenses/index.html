@@ -29,7 +29,7 @@
             <span class="kpi-label">This Month's Spending</span>
             <div class="kpi-icon-box expense"><i data-lucide="arrow-up-right"></i></div>
         </div>
-        <div class="kpi-amount" style="color: #8c4747;">
+        <div class="kpi-amount" style="color: #FF536E;">
             {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(current_month_expenses) }}
         </div>
         <div class="kpi-footer">
@@ -160,7 +160,7 @@
     {% if search_query or category_filter or month_filter %}
         <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.82rem; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
             <div>
-                Filtered results: <strong>{{ filtered_count }}</strong> items &bull; Total Filtered Outflow: <strong style="color: #8c4747;">-{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(filtered_total) }}</strong>
+                Filtered results: <strong>{{ filtered_count }}</strong> items &bull; Total Filtered Outflow: <strong style="color: #FF536E;">-{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(filtered_total) }}</strong>
             </div>
             <a href="{{ url_for('expenses.index') }}" style="color: var(--secondary); text-decoration: none; font-weight: 600;">Clear all filters &times;</a>
         </div>
@@ -206,7 +206,7 @@
                         {% if b.budget_limit %}
                             <div style="display: flex; justify-content: space-between; font-size: 0.74rem; color: var(--text-secondary);">
                                 <span>Budget Limit: {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(b.budget_limit) }}</span>
-                                <span style="font-weight: 600; {% if b.budget_utilization > 100 %}color: #8c4747;{% elif b.budget_utilization > 75 %}color: #9c7b3e;{% else %}color: #4b6e55;{% endif %}">
+                                <span style="font-weight: 600; {% if b.budget_utilization > 100 %}color: #FF536E;{% elif b.budget_utilization > 75 %}color: #FBBF24;{% else %}color: #00E599;{% endif %}">
                                     {{ b.budget_utilization }}% used
                                 </span>
                             </div>
@@ -225,7 +225,7 @@
             <div class="card-header-clean">
                 <div>
                     <h3 class="card-title-clean">
-                        <i data-lucide="bar-chart-2" style="color: #8c4747;"></i>
+                        <i data-lucide="bar-chart-2" style="color: #FF536E;"></i>
                         Monthly Expense Trend
                     </h3>
                     <span class="card-subtitle-clean">Expenditure pace over the last 6 months</span>

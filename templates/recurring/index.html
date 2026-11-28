@@ -12,16 +12,16 @@
         </div>
         <div style="padding: 12px 18px; background-color: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-subtle);">
             <div style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.04em;">Estimated Monthly Outflow</div>
-            <div style="font-size: 1.25rem; font-weight: 800; color: #8c4747; margin-top: 2px;">{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(total_recurring_monthly) }}</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: #FF536E; margin-top: 2px;">{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(total_recurring_monthly) }}</div>
         </div>
         <div style="padding: 12px 18px; background-color: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-subtle);">
             <div style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.04em;">Due in Next 7 Days</div>
-            <div style="font-size: 1.25rem; font-weight: 800; color: var(--secondary); margin-top: 2px;">{{ upcoming_7_days|length }} payment(s)</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: #38BDF8; margin-top: 2px;">{{ upcoming_7_days|length }} payment(s)</div>
         </div>
         {% if overdue_count > 0 %}
-        <div style="padding: 12px 18px; background-color: #fff4f4; border: 1px solid #ffd2d2; border-radius: 12px; box-shadow: var(--shadow-subtle);">
-            <div style="font-size: 0.72rem; color: #8c4747; text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em;">Overdue Attention</div>
-            <div style="font-size: 1.25rem; font-weight: 800; color: #8c4747; margin-top: 2px;">{{ overdue_count }} past due</div>
+        <div style="padding: 12px 18px; background-color: rgba(255, 83, 110, 0.12); border: 1px solid rgba(255, 83, 110, 0.35); border-radius: 12px; box-shadow: var(--shadow-subtle);">
+            <div style="font-size: 0.72rem; color: #FF536E; text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em;">Overdue Attention</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: #FF536E; margin-top: 2px;">{{ overdue_count }} past due</div>
         </div>
         {% endif %}
     </div>
@@ -88,7 +88,7 @@
                                 {{ r.category_name }}
                             </span>
                         </td>
-                        <td style="font-size: 0.84rem; font-weight: 600; color: {% if is_overdue %}#8c4747{% else %}var(--text-primary){% endif %};">
+                        <td style="font-size: 0.84rem; font-weight: 600; color: {% if is_overdue %}#FF536E{% else %}var(--text-primary){% endif %};">
                             {{ r.next_date.strftime('%d-%b-%Y') }}
                         </td>
                         <td style="font-size: 0.84rem; color: var(--text-secondary);">{{ r.payment_method }}</td>

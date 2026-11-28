@@ -53,7 +53,7 @@
 
         <div>
             <div style="font-size: 0.74rem; text-transform: uppercase; color: var(--text-secondary); font-weight: 600; letter-spacing: 0.04em;">Total Spent This Month</div>
-            <div style="font-size: 1.55rem; font-weight: 700; color: #8c4747; margin-top: 4px;">
+            <div style="font-size: 1.55rem; font-weight: 700; color: #FF536E; margin-top: 4px;">
                 {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(total_budget_spent) }}
             </div>
             <div style="font-size: 0.74rem; color: var(--text-secondary); margin-top: 2px;">Outflow for period {{ selected_month }}</div>
@@ -61,7 +61,7 @@
 
         <div>
             <div style="font-size: 0.74rem; text-transform: uppercase; color: var(--text-secondary); font-weight: 600; letter-spacing: 0.04em;">Remaining Safe Buffer</div>
-            <div style="font-size: 1.55rem; font-weight: 700; color: #4b6e55; margin-top: 4px;">
+            <div style="font-size: 1.55rem; font-weight: 700; color: #00E599; margin-top: 4px;">
                 {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(overall_remaining) }}
             </div>
             <div style="font-size: 0.74rem; color: var(--text-secondary); margin-top: 2px;">Available to spend</div>
@@ -72,7 +72,7 @@
             <div style="font-size: 1.55rem; font-weight: 700; color: var(--text-primary); margin-top: 4px;">
                 {{ overall_pct }}%
             </div>
-            <div style="font-size: 0.74rem; color: {% if overall_pct >= 90 %}#8c4747{% elif overall_pct >= 70 %}#856a31{% else %}#4b6e55{% endif %}; font-weight: 600; margin-top: 2px;">
+            <div style="font-size: 0.74rem; color: {% if overall_pct >= 90 %}#FF536E{% elif overall_pct >= 70 %}#FBBF24{% else %}#00E599{% endif %}; font-weight: 600; margin-top: 2px;">
                 {% if overall_pct >= 100 %}Exceeded Portfolio Limit{% elif overall_pct >= 90 %}Critical Usage Level{% elif overall_pct >= 70 %}Approaching Limit{% else %}Healthy Utilization{% endif %}
             </div>
         </div>
@@ -90,9 +90,9 @@
     <div style="margin-bottom: 24px; padding: 16px 20px; border-radius: 14px; background: {% if overspent_categories %}rgba(213, 154, 154, 0.15){% else %}rgba(214, 183, 122, 0.15){% endif %}; border: 1px solid {% if overspent_categories %}rgba(213, 154, 154, 0.4){% else %}rgba(214, 183, 122, 0.4){% endif %};">
         <div style="display: flex; align-items: flex-start; gap: 12px;">
             <i data-lucide="{% if overspent_categories %}alert-circle{% else %}alert-triangle{% endif %}"
-               style="width: 22px; height: 22px; color: {% if overspent_categories %}#8c4747{% else %}#856a31{% endif %}; flex-shrink: 0; margin-top: 2px;"></i>
+               style="width: 22px; height: 22px; color: {% if overspent_categories %}#FF536E{% else %}#FBBF24{% endif %}; flex-shrink: 0; margin-top: 2px;"></i>
             <div>
-                <h4 style="font-size: 0.94rem; font-weight: 700; color: {% if overspent_categories %}#8c4747{% else %}#856a31{% endif %}; margin: 0 0 4px 0;">
+                <h4 style="font-size: 0.94rem; font-weight: 700; color: {% if overspent_categories %}#FF536E{% else %}#FBBF24{% endif %}; margin: 0 0 4px 0;">
                     {% if overspent_categories %}
                         Budget Alert: {{ overspent_categories|length }} Category Exceeded Spending Limit
                     {% else %}
@@ -120,7 +120,7 @@
                 <!-- Card Header -->
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;">
                     <div style="display: flex; align-items: center; gap: 12px;">
-                        <div style="width: 42px; height: 42px; border-radius: 12px; background: #E6EFF6; color: var(--secondary); display: flex; align-items: center; justify-content: center;">
+                        <div style="width: 42px; height: 42px; border-radius: 12px; background: #17263A; color: var(--primary); display: flex; align-items: center; justify-content: center;">
                             <i data-lucide="{{ b.category_icon or 'tag' }}" style="width: 20px; height: 20px;"></i>
                         </div>
                         <div>
@@ -141,13 +141,13 @@
                     </div>
                     <div style="border-left: 1px solid var(--border); border-right: 1px solid var(--border);">
                         <div style="font-size: 0.68rem; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Spent</div>
-                        <div style="font-size: 0.92rem; font-weight: 700; color: #8c4747;">
+                        <div style="font-size: 0.92rem; font-weight: 700; color: #FF536E;">
                             {{ current_user.currency_symbol or '₹' }}{{ "{:,.0f}".format(b.spent) }}
                         </div>
                     </div>
                     <div>
                         <div style="font-size: 0.68rem; text-transform: uppercase; color: var(--text-secondary); font-weight: 600;">Remaining</div>
-                        <div style="font-size: 0.92rem; font-weight: 700; color: {% if b.remaining < 0 %}#8c4747{% else %}#4b6e55{% endif %};">
+                        <div style="font-size: 0.92rem; font-weight: 700; color: {% if b.remaining < 0 %}#FF536E{% else %}#00E599{% endif %};">
                             {{ current_user.currency_symbol or '₹' }}{{ "{:,.0f}".format(b.remaining) }}
                         </div>
                     </div>
@@ -167,12 +167,12 @@
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; padding-top: 10px; border-top: 1px solid var(--border); margin-top: 6px;">
                 <div>
                     {% if b.remaining >= 0 %}
-                        <span style="color: #4b6e55; font-weight: 600;">
+                        <span style="color: #00E599; font-weight: 600;">
                             <i data-lucide="check" style="width: 13px; height: 13px; vertical-align: middle; margin-right: 2px;"></i>
                             {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(b.remaining) }} left
                         </span>
                     {% else %}
-                        <span style="color: #8c4747; font-weight: 600;">
+                        <span style="color: #FF536E; font-weight: 600;">
                             <i data-lucide="alert-circle" style="width: 13px; height: 13px; vertical-align: middle; margin-right: 2px;"></i>
                             Exceeded by {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(b.remaining|abs) }}
                         </span>

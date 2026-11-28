@@ -29,7 +29,7 @@
             <span class="kpi-label">This Month's Inflow</span>
             <div class="kpi-icon-box income"><i data-lucide="arrow-down-left"></i></div>
         </div>
-        <div class="kpi-amount" style="color: #4b6e55;">
+        <div class="kpi-amount" style="color: #00E599;">
             {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(current_month_income) }}
         </div>
         <div class="kpi-footer">
@@ -136,7 +136,7 @@
     {% if search_query or category_filter or month_filter %}
         <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.82rem; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
             <div>
-                Filtered results: <strong>{{ filtered_count }}</strong> items &bull; Total Filtered Income: <strong style="color: #4b6e55;">{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(filtered_total) }}</strong>
+                Filtered results: <strong>{{ filtered_count }}</strong> items &bull; Total Filtered Income: <strong style="color: #00E599;">{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(filtered_total) }}</strong>
             </div>
             <a href="{{ url_for('income.index') }}" style="color: var(--secondary); text-decoration: none; font-weight: 600;">Clear all filters &times;</a>
         </div>
@@ -190,7 +190,7 @@
             <div class="card-header-clean">
                 <div>
                     <h3 class="card-title-clean">
-                        <i data-lucide="bar-chart-2" style="color: #4b6e55;"></i>
+                        <i data-lucide="bar-chart-2" style="color: #00E599;"></i>
                         Income Inflow Trend
                     </h3>
                     <span class="card-subtitle-clean">Monthly cash inflows over the last 6 months</span>

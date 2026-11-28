@@ -30,18 +30,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Summary cards row
                 html += `
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 18px;">
-                        <div style="padding: 10px 12px; background: rgba(142, 173, 152, 0.15); border-radius: 10px; border: 1px solid rgba(142, 173, 152, 0.3);">
-                            <div style="font-size: 0.68rem; color: #4b6e55; text-transform: uppercase; font-weight: 700;">Inflows</div>
-                            <div style="font-size: 1.05rem; font-weight: 800; color: #4b6e55;">+${currencySymbol}${Number(events.income_sum || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                        <div style="padding: 10px 12px; background: rgba(0, 229, 153, 0.1); border-radius: 10px; border: 1px solid rgba(0, 229, 153, 0.25);">
+                            <div style="font-size: 0.68rem; color: #00E599; text-transform: uppercase; font-weight: 700;">Inflows</div>
+                            <div style="font-size: 1.05rem; font-weight: 800; color: #00E599;">+${currencySymbol}${Number(events.income_sum || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
                         </div>
-                        <div style="padding: 10px 12px; background: rgba(213, 154, 154, 0.15); border-radius: 10px; border: 1px solid rgba(213, 154, 154, 0.3);">
-                            <div style="font-size: 0.68rem; color: #8c4747; text-transform: uppercase; font-weight: 700;">Outflows</div>
-                            <div style="font-size: 1.05rem; font-weight: 800; color: #8c4747;">-${currencySymbol}${Number(events.expense_sum || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                        <div style="padding: 10px 12px; background: rgba(255, 83, 110, 0.1); border-radius: 10px; border: 1px solid rgba(255, 83, 110, 0.25);">
+                            <div style="font-size: 0.68rem; color: #FF536E; text-transform: uppercase; font-weight: 700;">Outflows</div>
+                            <div style="font-size: 1.05rem; font-weight: 800; color: #FF536E;">-${currencySymbol}${Number(events.expense_sum || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
                         </div>
                         ${events.savings_sum > 0 ? `
-                        <div style="padding: 10px 12px; background: rgba(120, 155, 184, 0.15); border-radius: 10px; border: 1px solid rgba(120, 155, 184, 0.3);">
-                            <div style="font-size: 0.68rem; color: #3b5f7e; text-transform: uppercase; font-weight: 700;">Saved</div>
-                            <div style="font-size: 1.05rem; font-weight: 800; color: #3b5f7e;">+${currencySymbol}${Number(events.savings_sum).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                        <div style="padding: 10px 12px; background: rgba(56, 189, 248, 0.1); border-radius: 10px; border: 1px solid rgba(56, 189, 248, 0.25);">
+                            <div style="font-size: 0.68rem; color: #38BDF8; text-transform: uppercase; font-weight: 700;">Saved</div>
+                            <div style="font-size: 1.05rem; font-weight: 800; color: #38BDF8;">+${currencySymbol}${Number(events.savings_sum).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
                         </div>` : ''}
                     </div>
                 `;
@@ -76,10 +76,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     html += '<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">';
                     events.recurring.forEach(r => {
                         html += `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #E6EFF6; border-radius: 10px; border-left: 3px solid var(--secondary);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: rgba(0, 229, 153, 0.08); border-radius: 10px; border-left: 3px solid #00E599;">
                                 <div>
                                     <div style="font-weight: 600; font-size: 0.86rem; color: var(--text-primary);">${r.title}</div>
-                                    <div style="font-size: 0.72rem; color: var(--secondary); margin-top: 2px;">
+                                    <div style="font-size: 0.72rem; color: #00E599; margin-top: 2px;">
                                         Recurring (${r.frequency}) • ${r.payment_method}
                                     </div>
                                 </div>
@@ -98,12 +98,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     html += '<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">';
                     events.savings.forEach(s => {
                         html += `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: rgba(169, 197, 220, 0.2); border-radius: 10px; border-left: 3px solid var(--primary);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: rgba(56, 189, 248, 0.1); border-radius: 10px; border-left: 3px solid #38BDF8;">
                                 <div>
                                     <div style="font-weight: 600; font-size: 0.86rem; color: var(--text-primary);">${s.goal_name}</div>
                                     ${s.notes ? `<div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px;">${s.notes}</div>` : ''}
                                 </div>
-                                <div style="font-weight: 700; font-size: 0.92rem; color: #3b5f7e;">
+                                <div style="font-weight: 700; font-size: 0.92rem; color: #38BDF8;">
                                     +${currencySymbol}${Number(s.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                                 </div>
                             </div>

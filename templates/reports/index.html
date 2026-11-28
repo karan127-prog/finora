@@ -75,7 +75,7 @@
             <span class="kpi-label">Statement Inflow</span>
             <div class="kpi-icon-box income"><i data-lucide="arrow-down-left"></i></div>
         </div>
-        <div class="kpi-amount" style="color: #4b6e55;">
+        <div class="kpi-amount" style="color: #00E599;">
             {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(total_income) }}
         </div>
         <div class="kpi-footer">
@@ -88,7 +88,7 @@
             <span class="kpi-label">Statement Outflow</span>
             <div class="kpi-icon-box expense"><i data-lucide="arrow-up-right"></i></div>
         </div>
-        <div class="kpi-amount" style="color: #8c4747;">
+        <div class="kpi-amount" style="color: #FF536E;">
             {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(total_expenses) }}
         </div>
         <div class="kpi-footer">
@@ -101,7 +101,7 @@
             <span class="kpi-label">Net Accumulated Surplus</span>
             <div class="kpi-icon-box balance"><i data-lucide="wallet"></i></div>
         </div>
-        <div class="kpi-amount" style="color: {% if net_savings >= 0 %}#4b6e55{% else %}#8c4747{% endif %};">
+        <div class="kpi-amount" style="color: {% if net_savings >= 0 %}#00E599{% else %}#FF536E{% endif %};">
             {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(net_savings) }}
         </div>
         <div class="kpi-footer">

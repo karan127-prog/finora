@@ -1,4 +1,5 @@
-/* FINORA - Charts & Visualizations (Chart.js) */
+/* FINORA - Charts & Visualizations (Chart.js)
+   Theme: Obsidian Dark + Electric Emerald Palette */
 
 const activeChartInstances = {};
 
@@ -13,15 +14,18 @@ window.initAllCharts = function() {
     if (!window.Chart) return;
 
     // Set Chart.js global theme defaults
-    Chart.defaults.font.family = "'Manrope', 'Inter', sans-serif";
-    Chart.defaults.color = '#8799A8';
-    Chart.defaults.plugins.tooltip.backgroundColor = '#344454';
+    Chart.defaults.font.family = "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif";
+    Chart.defaults.color = '#94A3B8';
+    Chart.defaults.plugins.tooltip.backgroundColor = '#0E1724';
     Chart.defaults.plugins.tooltip.titleColor = '#FFFFFF';
-    Chart.defaults.plugins.tooltip.bodyColor = '#E6EFF6';
+    Chart.defaults.plugins.tooltip.bodyColor = '#CBD5E1';
     Chart.defaults.plugins.tooltip.padding = 12;
     Chart.defaults.plugins.tooltip.cornerRadius = 10;
     Chart.defaults.plugins.tooltip.borderWidth = 1;
-    Chart.defaults.plugins.tooltip.borderColor = '#789BB8';
+    Chart.defaults.plugins.tooltip.borderColor = '#1B2B3E';
+
+    const gridColor = 'rgba(255, 255, 255, 0.06)';
+    const cardBgColor = '#111C2B';
 
     // 1. Dashboard Overview Bar Chart (Income vs Expense)
     const overviewCanvas = document.getElementById('overviewBarChart');
@@ -41,16 +45,16 @@ window.initAllCharts = function() {
                                 {
                                     label: 'Income (₹)',
                                     data: data.overview.income,
-                                    backgroundColor: '#8EAD98',
-                                    borderRadius: 8,
+                                    backgroundColor: '#00E599',
+                                    borderRadius: 6,
                                     barPercentage: 0.6,
                                     categoryPercentage: 0.7
                                 },
                                 {
                                     label: 'Expenses (₹)',
                                     data: data.overview.expense,
-                                    backgroundColor: '#D59A9A',
-                                    borderRadius: 8,
+                                    backgroundColor: '#FF536E',
+                                    borderRadius: 6,
                                     barPercentage: 0.6,
                                     categoryPercentage: 0.7
                                 }
@@ -67,19 +71,21 @@ window.initAllCharts = function() {
                                         boxWidth: 12,
                                         boxHeight: 12,
                                         useBorderRadius: true,
-                                        borderRadius: 4,
-                                        font: { size: 12, weight: '500' }
+                                        borderRadius: 3,
+                                        color: '#CBD5E1',
+                                        font: { size: 12, weight: '600' }
                                     }
                                 }
                             },
                             scales: {
                                 x: {
                                     grid: { display: false },
-                                    ticks: { font: { size: 11 } }
+                                    ticks: { color: '#94A3B8', font: { size: 11 } }
                                 },
                                 y: {
-                                    grid: { color: '#E1EAF0' },
+                                    grid: { color: gridColor },
                                     ticks: {
+                                        color: '#94A3B8',
                                         font: { size: 11 },
                                         callback: function(value) {
                                             if (value >= 1000) return '₹' + (value / 1000) + 'k';
@@ -123,14 +129,14 @@ window.initAllCharts = function() {
                 const values = data.categories.data;
 
                 const palette = [
-                    '#789BB8', '#A9C5DC', '#8EAD98', '#D6B77A', '#D59A9A',
-                    '#C5D2DC', '#8799A8', '#546E7A', '#7E909A', '#90A4AE'
+                    '#00E599', '#38BDF8', '#FBBF24', '#FF536E', '#A855F7',
+                    '#EC4899', '#06B6D4', '#818CF8', '#10B981', '#F43F5E'
                 ];
 
                 if (labels.length === 0 || values.every(v => v === 0)) {
                     doughnutCanvas.parentElement.innerHTML = `
                         <div class="empty-state" style="padding: 30px;">
-                            <div class="empty-state-desc">No expense records found for this period.</div>
+                            <div class="empty-state-desc" style="color: #94A3B8;">No expense records found for this period.</div>
                         </div>
                     `;
                     return;
@@ -145,7 +151,7 @@ window.initAllCharts = function() {
                             data: values,
                             backgroundColor: palette.slice(0, labels.length),
                             borderWidth: 2,
-                            borderColor: '#FFFFFF',
+                            borderColor: cardBgColor,
                             hoverOffset: 6
                         }]
                     },
@@ -161,7 +167,8 @@ window.initAllCharts = function() {
                                     boxHeight: 10,
                                     useBorderRadius: true,
                                     borderRadius: 3,
-                                    font: { size: 11 }
+                                    color: '#CBD5E1',
+                                    font: { size: 11, weight: '500' }
                                 }
                             },
                             tooltip: {
@@ -194,8 +201,8 @@ window.initAllCharts = function() {
                 datasets: [{
                     label: 'Income Inflow (₹)',
                     data: amounts,
-                    backgroundColor: '#8EAD98',
-                    borderRadius: 8,
+                    backgroundColor: '#00E599',
+                    borderRadius: 6,
                     barPercentage: 0.55
                 }]
             },
@@ -211,10 +218,11 @@ window.initAllCharts = function() {
                     }
                 },
                 scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                    x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 11 } } },
                     y: {
-                        grid: { color: '#E1EAF0' },
+                        grid: { color: gridColor },
                         ticks: {
+                            color: '#94A3B8',
                             callback: function(v) { return (v >= 1000) ? '₹' + (v / 1000) + 'k' : '₹' + v; }
                         }
                     }
@@ -238,8 +246,8 @@ window.initAllCharts = function() {
                 datasets: [{
                     label: 'Expenditure (₹)',
                     data: amounts,
-                    backgroundColor: '#D59A9A',
-                    borderRadius: 8,
+                    backgroundColor: '#FF536E',
+                    borderRadius: 6,
                     barPercentage: 0.55
                 }]
             },
@@ -255,10 +263,11 @@ window.initAllCharts = function() {
                     }
                 },
                 scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                    x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 11 } } },
                     y: {
-                        grid: { color: '#E1EAF0' },
+                        grid: { color: gridColor },
                         ticks: {
+                            color: '#94A3B8',
                             callback: function(v) { return (v >= 1000) ? '₹' + (v / 1000) + 'k' : '₹' + v; }
                         }
                     }
@@ -285,32 +294,32 @@ window.initAllCharts = function() {
                     {
                         label: 'Income (₹)',
                         data: income,
-                        borderColor: '#8EAD98',
-                        backgroundColor: 'rgba(142, 173, 152, 0.1)',
+                        borderColor: '#00E599',
+                        backgroundColor: 'rgba(0, 229, 153, 0.1)',
                         tension: 0.35,
                         fill: true,
                         pointRadius: 4,
-                        pointBackgroundColor: '#8EAD98'
+                        pointBackgroundColor: '#00E599'
                     },
                     {
                         label: 'Expenses (₹)',
                         data: expense,
-                        borderColor: '#D59A9A',
-                        backgroundColor: 'rgba(213, 154, 154, 0.1)',
+                        borderColor: '#FF536E',
+                        backgroundColor: 'rgba(255, 83, 110, 0.1)',
                         tension: 0.35,
                         fill: true,
                         pointRadius: 4,
-                        pointBackgroundColor: '#D59A9A'
+                        pointBackgroundColor: '#FF536E'
                     },
                     {
                         label: 'Net Savings (₹)',
                         data: savings,
-                        borderColor: '#789BB8',
+                        borderColor: '#38BDF8',
                         borderDash: [5, 5],
                         tension: 0.35,
                         fill: false,
                         pointRadius: 4,
-                        pointBackgroundColor: '#789BB8'
+                        pointBackgroundColor: '#38BDF8'
                     }
                 ]
             },
@@ -321,14 +330,15 @@ window.initAllCharts = function() {
                     legend: {
                         position: 'top',
                         align: 'end',
-                        labels: { boxWidth: 12, useBorderRadius: true }
+                        labels: { boxWidth: 12, useBorderRadius: true, color: '#CBD5E1' }
                     }
                 },
                 scales: {
-                    x: { grid: { display: false } },
+                    x: { grid: { display: false }, ticks: { color: '#94A3B8' } },
                     y: {
-                        grid: { color: '#E1EAF0' },
+                        grid: { color: gridColor },
                         ticks: {
+                            color: '#94A3B8',
                             callback: function(v) { return (v >= 1000) ? '₹' + (v / 1000) + 'k' : '₹' + v; }
                         }
                     }
@@ -345,8 +355,8 @@ window.initAllCharts = function() {
         const data = window.finoraCategoryData.map(c => c.amount);
 
         const palette = [
-            '#789BB8', '#A9C5DC', '#8EAD98', '#D6B77A', '#D59A9A',
-            '#C5D2DC', '#8799A8', '#546E7A', '#7E909A', '#90A4AE'
+            '#00E599', '#38BDF8', '#FBBF24', '#FF536E', '#A855F7',
+            '#EC4899', '#06B6D4', '#818CF8', '#10B981', '#F43F5E'
         ];
 
         safeDestroyChart('analyticsCategoryDoughnut');
@@ -358,7 +368,7 @@ window.initAllCharts = function() {
                     data: data,
                     backgroundColor: palette.slice(0, labels.length),
                     borderWidth: 2,
-                    borderColor: '#FFFFFF',
+                    borderColor: cardBgColor,
                     hoverOffset: 6
                 }]
             },
@@ -369,7 +379,7 @@ window.initAllCharts = function() {
                 plugins: {
                     legend: {
                         position: 'right',
-                        labels: { boxWidth: 10, boxHeight: 10, useBorderRadius: true, font: { size: 11 } }
+                        labels: { boxWidth: 10, boxHeight: 10, useBorderRadius: true, color: '#CBD5E1', font: { size: 11 } }
                     },
                     tooltip: {
                         callbacks: {

@@ -17,20 +17,20 @@
 
     <!-- Quick Action Shortcut Pills -->
     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <button type="button" class="btn btn-outline btn-sm" onclick="openQuickAddModal('income')" style="border-color: rgba(142, 173, 152, 0.4); color: #4b6e55; background: #FFFFFF;">
-            <i data-lucide="plus-circle" style="width: 14px; height: 14px; color: #4b6e55;"></i>
+        <button type="button" class="btn btn-outline btn-sm" onclick="openQuickAddModal('income')" style="border-color: rgba(0, 229, 153, 0.35); color: #00E599; background: rgba(0, 229, 153, 0.1);">
+            <i data-lucide="plus-circle" style="width: 14px; height: 14px; color: #00E599;"></i>
             <span>Add Income</span>
         </button>
-        <button type="button" class="btn btn-outline btn-sm" onclick="openQuickAddModal('expense')" style="border-color: rgba(213, 154, 154, 0.4); color: #8c4747; background: #FFFFFF;">
-            <i data-lucide="minus-circle" style="width: 14px; height: 14px; color: #8c4747;"></i>
+        <button type="button" class="btn btn-outline btn-sm" onclick="openQuickAddModal('expense')" style="border-color: rgba(255, 83, 110, 0.35); color: #FF536E; background: rgba(255, 83, 110, 0.1);">
+            <i data-lucide="minus-circle" style="width: 14px; height: 14px; color: #FF536E;"></i>
             <span>Add Expense</span>
         </button>
-        <a href="{{ url_for('budgets.index') }}" class="btn btn-outline btn-sm" style="border-color: var(--border); color: var(--text-primary); background: #FFFFFF;">
-            <i data-lucide="sliders" style="width: 14px; height: 14px; color: var(--secondary);"></i>
+        <a href="{{ url_for('budgets.index') }}" class="btn btn-outline btn-sm" style="border-color: var(--border); color: #F8FAFC; background: var(--card);">
+            <i data-lucide="sliders" style="width: 14px; height: 14px; color: var(--primary);"></i>
             <span>Plan Budget</span>
         </a>
-        <a href="{{ url_for('reports.index') }}" class="btn btn-outline btn-sm" style="border-color: var(--border); color: var(--text-primary); background: #FFFFFF;">
-            <i data-lucide="file-text" style="width: 14px; height: 14px; color: var(--secondary);"></i>
+        <a href="{{ url_for('reports.index') }}" class="btn btn-outline btn-sm" style="border-color: var(--border); color: #F8FAFC; background: var(--card);">
+            <i data-lucide="file-text" style="width: 14px; height: 14px; color: var(--primary);"></i>
             <span>Statement</span>
         </a>
     </div>
@@ -175,7 +175,7 @@
             </div>
             <div style="text-align: right;">
                 <div style="font-size: 0.76rem; color: var(--text-secondary); text-transform: uppercase;">Remaining</div>
-                <div style="font-size: 1.15rem; font-weight: 700; color: #4b6e55;">
+                <div style="font-size: 1.15rem; font-weight: 700; color: #00E599;">
                     {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(metrics.remaining_budget) }}
                 </div>
             </div>
@@ -227,12 +227,12 @@
             <div style="display: flex; flex-direction: column; gap: 14px;">
                 {% for g in savings_goals %}
                     <div style="padding: 14px; background-color: var(--background); border-radius: 14px; border: 1px solid var(--border);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                             <div style="display: flex; align-items: center; gap: 10px;">
-                                <div style="width: 32px; height: 32px; border-radius: 8px; background: #E6EFF6; color: var(--secondary); display: flex; align-items: center; justify-content: center;">
+                                <div style="width: 32px; height: 32px; border-radius: 8px; background: #17263A; color: var(--primary); display: flex; align-items: center; justify-content: center;">
                                     <i data-lucide="{{ g.icon or 'target' }}" style="width: 16px; height: 16px;"></i>
                                 </div>
-                                <span style="font-weight: 600; font-size: 0.9rem;">{{ g.name }}</span>
+                                <span style="font-weight: 600; font-size: 0.9rem; color: #FFFFFF;">{{ g.name }}</span>
                             </div>
                             <span class="badge badge-success">{{ g.progress_percentage }}%</span>
                         </div>
@@ -293,7 +293,7 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <span class="badge" style="background-color: var(--sidebar); color: var(--secondary);">
+                                <span class="badge" style="background: rgba(255, 255, 255, 0.06); color: #CBD5E1; border: 1px solid var(--border);">
                                     {{ t.category_name }}
                                 </span>
                             </td>
@@ -349,8 +349,8 @@
             {% endfor %}
 
             <!-- Quick Snapshot Box -->
-            <div style="margin-top: 8px; padding: 14px; border-radius: 12px; background: linear-gradient(135deg, #E6EFF6 0%, #F3F7FA 100%); border: 1px solid var(--border);">
-                <div style="font-size: 0.74rem; font-weight: 600; color: var(--secondary); text-transform: uppercase; margin-bottom: 6px;">Daily Spending Velocity</div>
+            <div style="margin-top: 8px; padding: 14px; border-radius: 12px; background: linear-gradient(135deg, #0E1724 0%, #131F30 100%); border: 1px solid var(--border);">
+                <div style="font-size: 0.74rem; font-weight: 600; color: var(--primary); text-transform: uppercase; margin-bottom: 6px;">Daily Spending Velocity</div>
                 <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">
                     {{ current_user.currency_symbol or '₹' }}{{ "{:,.1f}".format(metrics.avg_daily_spend) }} <span style="font-size: 0.78rem; font-weight: 500; color: var(--text-secondary);">/ day</span>
                 </div>

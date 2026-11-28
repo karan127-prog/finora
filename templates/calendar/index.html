@@ -35,7 +35,7 @@
     }
     .calendar-day-cell {
         min-height: 105px;
-        background-color: #FFFFFF;
+        background-color: var(--card);
         border: 1px solid var(--border);
         border-radius: 12px;
         padding: 8px;
@@ -47,16 +47,16 @@
     }
     .calendar-day-cell:hover {
         border-color: var(--secondary);
-        box-shadow: 0 4px 14px rgba(120, 155, 184, 0.15);
+        box-shadow: 0 4px 14px rgba(0, 229, 153, 0.15);
         transform: translateY(-2px);
     }
     .calendar-day-cell.other-month {
         opacity: 0.38;
-        background-color: var(--background);
+        background-color: rgba(8, 14, 23, 0.5);
     }
     .calendar-day-cell.is-today {
         border: 2px solid var(--secondary);
-        background-color: rgba(230, 239, 246, 0.35);
+        background-color: rgba(0, 229, 153, 0.08);
     }
     .day-number {
         font-size: 0.85rem;
@@ -80,22 +80,22 @@
         line-height: 1.25;
     }
     .day-pill.inc {
-        background-color: var(--income-light);
-        color: #4b6e55;
+        background-color: rgba(0, 229, 153, 0.12);
+        color: #00E599;
     }
     .day-pill.exp {
-        background-color: var(--expense-light);
-        color: #8c4747;
+        background-color: rgba(255, 83, 110, 0.12);
+        color: #FF536E;
     }
     .day-pill.rec {
-        background-color: #E6EFF6;
-        color: var(--secondary);
-        border: 1px dashed var(--secondary);
+        background-color: rgba(0, 229, 153, 0.08);
+        color: #00E599;
+        border: 1px dashed rgba(0, 229, 153, 0.4);
     }
     .day-pill.sav {
-        background-color: rgba(169, 197, 220, 0.3);
-        color: #3b5f7e;
-        border: 1px solid rgba(120, 155, 184, 0.4);
+        background-color: rgba(56, 189, 248, 0.15);
+        color: #38BDF8;
+        border: 1px solid rgba(56, 189, 248, 0.3);
     }
     @media (max-width: 768px) {
         .calendar-container {

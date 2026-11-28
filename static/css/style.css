@@ -629,27 +629,27 @@ a:hover {
 }
 
 .flash-alert.success {
-    background-color: var(--income-light);
-    color: #4b6e55;
-    border: 1px solid rgba(142, 173, 152, 0.4);
+    background-color: rgba(0, 229, 153, 0.15);
+    color: #00E599;
+    border: 1px solid rgba(0, 229, 153, 0.3);
 }
 
 .flash-alert.danger {
-    background-color: var(--expense-light);
-    color: #8c4747;
-    border: 1px solid rgba(213, 154, 154, 0.4);
+    background-color: rgba(255, 83, 110, 0.15);
+    color: #FF536E;
+    border: 1px solid rgba(255, 83, 110, 0.3);
 }
 
 .flash-alert.warning {
-    background-color: var(--warning-light);
-    color: #856a31;
-    border: 1px solid rgba(214, 183, 122, 0.4);
+    background-color: rgba(245, 158, 11, 0.15);
+    color: #FBBF24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .flash-alert.info {
-    background-color: var(--primary-light);
-    color: var(--secondary);
-    border: 1px solid var(--primary);
+    background-color: rgba(56, 189, 248, 0.15);
+    color: #38BDF8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
 }
 
 /* Animations */

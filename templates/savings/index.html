@@ -36,7 +36,7 @@
             <span class="kpi-label">Total Capital Saved</span>
             <div class="kpi-icon-box income"><i data-lucide="shield-check"></i></div>
         </div>
-        <div class="kpi-amount" style="color: #4b6e55;">
+        <div class="kpi-amount" style="color: #00E599;">
             {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(total_saved) }}
         </div>
         <div class="kpi-footer">
@@ -102,7 +102,7 @@
                 <!-- Top Card Header -->
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
                     <div style="display: flex; align-items: center; gap: 12px;">
-                        <div style="width: 44px; height: 44px; border-radius: 14px; background: #E6EFF6; color: var(--secondary); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <div style="width: 44px; height: 44px; border-radius: 14px; background: #17263A; color: var(--primary); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                             <i data-lucide="{{ g.icon or 'target' }}" style="width: 22px; height: 22px;"></i>
                         </div>
                         <div>
@@ -137,7 +137,7 @@
                                 of {{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(g.target_amount) }}
                             </span>
                         </div>
-                        <div style="font-size: 0.95rem; font-weight: 700; color: {% if gc.is_completed %}#4b6e55{% else %}var(--secondary){% endif %};">
+                        <div style="font-size: 0.95rem; font-weight: 700; color: {% if gc.is_completed %}#00E599{% else %}var(--primary){% endif %};">
                             {{ g.progress_percentage }}%
                         </div>
                     </div>
@@ -157,7 +157,7 @@
 
                     <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                         <span style="color: var(--text-secondary);">Timeline:</span>
-                        <span style="font-weight: 600; color: {% if gc.days_left < 0 %}#8c4747{% elif gc.days_left <= 30 %}#856a31{% else %}var(--text-primary){% endif %};">
+                        <span style="font-weight: 600; color: {% if gc.days_left < 0 %}#FF536E{% elif gc.days_left <= 30 %}#FBBF24{% else %}var(--text-primary){% endif %};">
                             {% if gc.is_completed %}
                                 Goal Achieved!
                             {% elif gc.days_left > 0 %}
@@ -171,7 +171,7 @@
                     </div>
 
                     {% if not gc.is_completed and gc.monthly_recommended > 0 %}
-                        <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 0.76rem; color: #4b6e55; display: flex; align-items: center; gap: 4px;">
+                        <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 0.76rem; color: #00E599; display: flex; align-items: center; gap: 4px;">
                             <i data-lucide="sparkles" style="width: 12px; height: 12px;"></i>
                             <span>Save <strong>{{ current_user.currency_symbol or '₹' }}{{ "{:,.2f}".format(gc.monthly_recommended) }} / month</strong> to reach goal on time.</span>
                         </div>
@@ -436,7 +436,7 @@
                                     <div style="font-weight: 600; color: var(--text-primary);">${c.notes}</div>
                                     <div style="font-size: 0.74rem; color: var(--text-secondary);">${c.date}</div>
                                 </div>
-                                <div style="font-weight: 700; color: ${c.amount >= 0 ? '#4b6e55' : '#8c4747'};">
+                                <div style="font-weight: 700; color: ${c.amount >= 0 ? '#00E599' : '#FF536E'};">
                                     ${c.amount >= 0 ? '+' : ''}{{ current_user.currency_symbol or '₹' }}${Number(c.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                                 </div>
                             </div>
